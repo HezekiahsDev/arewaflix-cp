@@ -7,9 +7,11 @@ import EditScreenInfo from "@/components/EditScreenInfo";
 
 export default function ModalScreen() {
   return (
-    <View className="flex-1 items-center justify-center bg-background">
-      <Text className="text-lg font-bold text-text">Modal</Text>
-      <View className="my-8 h-px w-4/5 bg-gray-200 dark:bg-white/10" />
+    <View className="flex-1 items-center justify-center bg-background dark:bg-background-dark">
+      <Text className="text-lg font-bold text-text dark:text-text-dark">
+        Modal
+      </Text>
+      <View className="my-8 h-px w-4/5 bg-border dark:bg-border-dark" />
       <EditScreenInfo path="app/modal.tsx" />
 
       {/* Use a light status bar on iOS to account for the black space above the modal */}

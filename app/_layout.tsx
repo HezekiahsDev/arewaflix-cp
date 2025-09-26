@@ -7,11 +7,18 @@ import {
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useMemo } from "react";
+import { View } from "react-native";
 import "react-native-reanimated";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import "../global.css";
 
+import AppHeader from "@/components/AppHeader";
 import { useColorScheme } from "@/components/useColorScheme";
+import Colors, { NavigationColors } from "@/constants/Colors";
+import { AuthProvider } from "@/context/AuthContext";
+import { colorScheme as nativewindColorScheme } from "nativewind";
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -47,18 +54,51 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return (
+    <AuthProvider>
+      <RootLayoutNav />
+    </AuthProvider>
+  );
 }
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const scheme = colorScheme ?? "light";
+
+  useEffect(() => {
+    nativewindColorScheme.set(scheme);
+  }, [scheme]);
+
+  const navigationTheme = useMemo(() => {
+    const base = scheme === "dark" ? DarkTheme : DefaultTheme;
+    const semantic =
+      scheme === "dark" ? NavigationColors.dark : NavigationColors.light;
+
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        ...semantic.colors,
+      },
+    } as typeof DefaultTheme;
+  }, [scheme]);
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-      </Stack>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider value={navigationTheme}>
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor: Colors[scheme].background }}
+        >
+          <StatusBar style={Colors[scheme].statusBarStyle} />
+          <AppHeader colorScheme={scheme} />
+          <View style={{ flex: 1 }}>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+            </Stack>
+          </View>
+        </SafeAreaView>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

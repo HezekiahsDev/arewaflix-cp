@@ -7,27 +7,30 @@ import { MonoText } from "./StyledText";
 export default function EditScreenInfo({ path }: { path: string }) {
   return (
     <View>
-      <View className="items-center mx-12">
-        <Text className="text-base leading-6 text-center text-text">
+      <View className="mx-12 items-center">
+        <Text className="text-center text-base leading-6 text-text dark:text-text-dark">
           Open up the code for this screen:
         </Text>
 
-        <View className="rounded-sm px-1 my-2 bg-transparent">
+        <View className="my-2 rounded-sm bg-transparent px-1">
           <MonoText>{path}</MonoText>
         </View>
 
-        <Text className="text-base leading-6 text-center text-text">
+        <Text className="text-center text-base leading-6 text-text dark:text-text-dark">
           Change any of the text, save the file, and your app will automatically
           update.
         </Text>
       </View>
 
-      <View className="mt-4 mx-5 items-center">
+      <View className="mx-5 mt-4 items-center">
         <ExternalLink
           style={{ paddingVertical: 15 }}
           href="https://docs.expo.io/get-started/create-a-new-app/#opening-the-app-on-your-phonetablet"
         >
-          <Text style={{ textAlign: "center" }} className="text-text">
+          <Text
+            style={{ textAlign: "center" }}
+            className="text-text dark:text-text-dark"
+          >
             Tap here if your app doesn't automatically update after making
             changes
           </Text>

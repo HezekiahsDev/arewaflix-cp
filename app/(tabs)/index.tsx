@@ -34,6 +34,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const categories = [
   "All",
@@ -48,13 +49,27 @@ const categories = [
 ];
 
 const screenWidth = Dimensions.get("window").width;
-const GRID_GAP = 16;
-const GRID_CARD_WIDTH = (screenWidth - 64 - GRID_GAP) / 2;
+const DEFAULT_RAIL_SPACING = 16;
+const DEFAULT_CARD_DIMENSIONS = {
+  width: Math.min(screenWidth * 0.72, 320),
+  height: 280,
+  thumbnailHeight: 176,
+};
+const COMPACT_CARD_DIMENSIONS = {
+  width: 128,
+  height: 192,
+  thumbnailHeight: 128,
+};
 
 const AnimatedImageBackground =
   Animated.createAnimatedComponent(ImageBackground);
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = useMemo(
+    () => Math.max(96, insets.bottom + 56),
+    [insets.bottom]
+  );
   const [featuredVideos, setFeaturedVideos] = useState<Video[]>([]);
   const [shortVideos, setShortVideos] = useState<Video[]>([]);
   const [trendingVideos, setTrendingVideos] = useState<Video[]>([]);
@@ -146,8 +161,9 @@ export default function HomeScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background dark:bg-background-dark"
-      contentContainerStyle={{ paddingBottom: 96 }}
+      contentContainerStyle={{ paddingBottom: bottomPadding }}
       showsVerticalScrollIndicator={false}
+      scrollIndicatorInsets={{ bottom: insets.bottom }}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -169,7 +185,11 @@ export default function HomeScreen() {
         <View className="mt-12">
           <SectionHeader title="Trending" ctaLabel="See all" />
           {trendingVideos.length ? (
-            <VideoGrid videos={trendingVideos} />
+            <VideoRail
+              videos={trendingVideos}
+              dimensions={COMPACT_CARD_DIMENSIONS}
+              spacing={12}
+            />
           ) : (
             <EmptyState message="Trending videos will appear here soon." />
           )}
@@ -183,7 +203,7 @@ export default function HomeScreen() {
         <View className="mt-12">
           <SectionHeader title="Top videos" ctaLabel="See all" />
           {topVideos.length ? (
-            <VideoGrid videos={topVideos} />
+            <VideoRail videos={topVideos} />
           ) : (
             <EmptyState message="Top picks are being curated." />
           )}
@@ -367,13 +387,13 @@ function ShortsRail({ items }: ShortsRailProps) {
       horizontal
       keyExtractor={(item) => item.id}
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingRight: 16 }}
+      contentContainerStyle={{ paddingRight: 12 }}
       renderItem={({ item, index }) => {
         const durationLabel = getDurationLabel(item);
         return (
           <Pressable
             className="h-48 w-32 overflow-hidden rounded-2xl border border-border dark:border-border-dark bg-surface-muted dark:bg-surface-muted-dark"
-            style={{ marginRight: index === items.length - 1 ? 0 : 16 }}
+            style={{ marginRight: index === items.length - 1 ? 0 : 12 }}
           >
             <Image source={{ uri: item.imageUrl }} className="h-full w-full" />
             {durationLabel ? (
@@ -390,43 +410,91 @@ function ShortsRail({ items }: ShortsRailProps) {
   );
 }
 
-type VideoGridProps = {
+type VideoRailProps = {
   videos: VideoItem[];
+  dimensions?: VideoCardDimensions;
+  spacing?: number;
 };
 
-function VideoGrid({ videos }: VideoGridProps) {
+function VideoRail({
+  videos,
+  dimensions = DEFAULT_CARD_DIMENSIONS,
+  spacing = DEFAULT_RAIL_SPACING,
+}: VideoRailProps) {
   return (
-    <View className="flex-row flex-wrap justify-between">
-      {videos.map((video, index) => (
-        <View
-          key={video.id}
-          style={[
-            styles.gridItem,
-            {
-              marginRight:
-                index % 2 === 0 && index !== videos.length - 1 ? GRID_GAP : 0,
-            },
-          ]}
-        >
-          <VideoCard video={video} />
-        </View>
-      ))}
+    <FlatList
+      data={videos}
+      horizontal
+      keyExtractor={(item) => item.id}
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingRight: spacing }}
+      renderItem={({ item, index }) => (
+        <VideoRailItem
+          item={item}
+          index={index}
+          videosLength={videos.length}
+          dimensions={dimensions}
+          spacing={spacing}
+        />
+      )}
+    />
+  );
+}
+
+type VideoCardDimensions = typeof DEFAULT_CARD_DIMENSIONS;
+
+type VideoRailItemProps = {
+  item: VideoItem;
+  index: number;
+  videosLength: number;
+  dimensions: VideoCardDimensions;
+  spacing: number;
+};
+
+function VideoRailItem({
+  item,
+  index,
+  videosLength,
+  dimensions,
+  spacing,
+}: VideoRailItemProps) {
+  return (
+    <View
+      style={{
+        width: dimensions.width,
+        height: dimensions.height,
+        marginRight: index === videosLength - 1 ? 0 : spacing,
+      }}
+    >
+      <VideoCard video={item} dimensions={dimensions} />
     </View>
   );
 }
 
 type VideoCardProps = {
   video: VideoItem;
+  dimensions?: VideoCardDimensions;
 };
 
-function VideoCard({ video }: VideoCardProps) {
+function VideoCard({ video, dimensions = DEFAULT_CARD_DIMENSIONS }: VideoCardProps) {
   const durationLabel = getDurationLabel(video);
   const authorLabel = getAuthorLabel(video);
   const subtitle = buildVideoSubtitle(video);
+  const isCompact = dimensions.height <= 200;
 
   return (
-    <Pressable className="overflow-hidden rounded-2xl bg-card shadow-sm dark:bg-card-dark">
-      <Image source={{ uri: video.imageUrl }} className="h-40 w-full" />
+    <Pressable
+      className="overflow-hidden rounded-2xl bg-card shadow-sm dark:bg-card-dark"
+      style={{
+        width: "100%",
+        height: dimensions.height,
+      }}
+    >
+      <Image
+        source={{ uri: video.imageUrl }}
+        className="w-full"
+        style={{ height: dimensions.thumbnailHeight }}
+      />
       {durationLabel ? (
         <View className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1">
           <Text className="text-[11px] font-semibold uppercase tracking-wide text-white">
@@ -434,10 +502,18 @@ function VideoCard({ video }: VideoCardProps) {
           </Text>
         </View>
       ) : null}
-      <View className="gap-1 p-4">
+      <View
+        className="gap-1"
+        style={{
+          flex: 1,
+          justifyContent: "space-between",
+          paddingHorizontal: isCompact ? 12 : 16,
+          paddingVertical: isCompact ? 10 : 16,
+        }}
+      >
         <Text
           className="text-base font-semibold text-text dark:text-text-dark"
-          numberOfLines={2}
+          numberOfLines={isCompact ? 2 : 3}
         >
           {video.title}
         </Text>
@@ -501,9 +577,5 @@ function EmptyState({ message }: EmptyStateProps) {
 const styles = StyleSheet.create({
   featuredHeroContainer: {
     overflow: "hidden",
-  },
-  gridItem: {
-    width: GRID_CARD_WIDTH,
-    marginBottom: 16,
   },
 });

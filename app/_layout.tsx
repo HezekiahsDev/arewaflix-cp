@@ -87,6 +87,7 @@ function RootLayoutNav() {
     <SafeAreaProvider>
       <ThemeProvider value={navigationTheme}>
         <SafeAreaView
+          edges={["top", "left", "right"]}
           style={{ flex: 1, backgroundColor: Colors[scheme].background }}
         >
           <StatusBar style={Colors[scheme].statusBarStyle} />

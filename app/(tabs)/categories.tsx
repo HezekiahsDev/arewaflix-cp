@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const categories = [
   {
@@ -45,6 +46,12 @@ const categories = [
 ];
 
 export default function CategoriesScreen() {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = useMemo(
+    () => Math.max(96, insets.bottom + 56),
+    [insets.bottom]
+  );
+
   return (
     <View className="flex-1 bg-background px-4 pt-12 dark:bg-background-dark">
       <Text className="text-3xl font-semibold text-text dark:text-text-dark">
@@ -59,7 +66,11 @@ export default function CategoriesScreen() {
         numColumns={2}
         showsVerticalScrollIndicator={false}
         columnWrapperStyle={{ justifyContent: "space-between" }}
-        contentContainerStyle={{ paddingVertical: 24, paddingBottom: 96 }}
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: bottomPadding,
+        }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
         renderItem={({ item }) => (
           <Pressable
             className="rounded-3xl border border-border bg-card p-5 shadow-sm dark:border-border-dark dark:bg-card-dark"

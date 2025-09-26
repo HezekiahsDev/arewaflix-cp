@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   Video,
@@ -21,6 +22,11 @@ import {
 } from "@/lib/videos/formatters";
 
 export default function TrendingScreen() {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = useMemo(
+    () => Math.max(96, insets.bottom + 56),
+    [insets.bottom]
+  );
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,7 +104,11 @@ export default function TrendingScreen() {
         data={videos}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingVertical: 24, paddingBottom: 96 }}
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: bottomPadding,
+        }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

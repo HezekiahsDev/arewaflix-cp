@@ -1,127 +1,547 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useIsFocused } from "@react-navigation/native";
+import { AVPlaybackStatus, Video as ExpoVideo, ResizeMode } from "expo-av";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
-  Pressable,
   RefreshControl,
   Text,
   View,
-  ViewToken,
-  useWindowDimensions,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { AVPlaybackStatus, ResizeMode, Video as ExpoVideo } from "expo-av";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   VIDEOS_API_BASE_URL,
+  Video as VideoModel,
   fetchShorts,
   getVideosErrorMessage,
-  Video as VideoModel,
 } from "@/lib/api/videos";
 import { getDurationLabel } from "@/lib/videos/formatters";
+import { fetchYoutubePlaybackUrl } from "@/lib/videos/youtube";
 
-function resolveVideoUri(video: VideoModel): string | undefined {
-  const candidates = [
-    video.videoLocation,
-    typeof video.raw?.video_location === "string"
-      ? (video.raw?.video_location as string)
-      : undefined,
-    typeof video.raw?.videoLocation === "string"
-      ? (video.raw?.videoLocation as string)
-      : undefined,
-    typeof video.raw?.video_url === "string"
-      ? (video.raw?.video_url as string)
-      : undefined,
-  ].filter(Boolean) as string[];
+type ShortMedia =
+  | { kind: "video"; uri: string }
+  | { kind: "youtube"; videoId: string; url: string }
+  | { kind: "none" };
 
-  const candidate = candidates.find(Boolean);
-  if (!candidate) return undefined;
+type PlayableShort = {
+  video: VideoModel;
+  source: {
+    uri: string;
+    origin: "direct" | "youtube";
+  };
+};
 
-  if (/^https?:\/\//i.test(candidate)) {
-    return candidate;
+const VIDEO_FILE_EXTENSIONS = [
+  "mp4",
+  "m4v",
+  "mov",
+  "webm",
+  "mkv",
+  "avi",
+  "flv",
+  "wmv",
+  "m3u8",
+  "ts",
+  "m2ts",
+];
+
+const MEDIA_CANDIDATE_KEYS = [
+  "video_location",
+  "videoLocation",
+  "video_url",
+  "videoUrl",
+  "videoFile",
+  "video_file",
+  "video",
+  "source",
+  "source_url",
+  "sourceUrl",
+  "stream_url",
+  "streamUrl",
+  "stream",
+  "download_url",
+  "downloadUrl",
+  "embed",
+  "embed_code",
+  "embedCode",
+  "iframe",
+  "iframe_src",
+  "iframeSrc",
+  "youtube",
+  "youtube_url",
+  "youtubeUrl",
+  "youtube_code",
+  "youtubeCode",
+  "youtube_id",
+  "youtubeId",
+  "video_id",
+  "videoId",
+  "youtube_link",
+  "youtubeLink",
+  "short_id",
+  "shortId",
+  "short_code",
+  "shortCode",
+  "code",
+  "url",
+];
+
+const MEDIA_COLLECTION_KEYS = ["sources", "videos", "urls", "media", "embeds"];
+
+function collectMediaCandidates(video: VideoModel): string[] {
+  const seen = new Set<string>();
+
+  const addCandidate = (value: unknown) => {
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    seen.add(trimmed);
+  };
+
+  addCandidate(video.videoLocation);
+
+  const raw = (video.raw ?? {}) as Record<string, unknown>;
+
+  MEDIA_CANDIDATE_KEYS.forEach((key) => addCandidate(raw[key]));
+
+  MEDIA_COLLECTION_KEYS.forEach((key) => {
+    const value = raw[key];
+    if (Array.isArray(value)) {
+      value.forEach((entry) => addCandidate(entry));
+    }
+  });
+
+  return Array.from(seen);
+}
+
+function isYoutubeValue(value: string): boolean {
+  return /youtube\.com|youtu\.be/i.test(value);
+}
+
+function hasPathIndicators(value: string): boolean {
+  return value.includes("/") || /\.[a-z0-9]{2,4}(\?|$)/i.test(value);
+}
+
+function resolveDirectVideoUrl(candidate: string): string | undefined {
+  const trimmed = candidate.trim();
+  if (!trimmed) return undefined;
+
+  if (isYoutubeValue(trimmed)) {
+    return undefined;
   }
 
-  if (candidate.startsWith("//")) {
-    return `https:${candidate}`;
+  const lower = trimmed.toLowerCase();
+  const hasExtension = VIDEO_FILE_EXTENSIONS.some((ext) =>
+    lower.includes(`.${ext}`)
+  );
+
+  const qualifiesAsPath = hasExtension || hasPathIndicators(trimmed);
+
+  if (/^https?:\/{2}/i.test(trimmed)) {
+    return qualifiesAsPath ? trimmed : undefined;
   }
 
-  const sanitized = candidate.replace(/^\/+/, "");
+  if (trimmed.startsWith("//")) {
+    const normalized = `https:${trimmed}`;
+    return qualifiesAsPath ? normalized : undefined;
+  }
+
+  if (!qualifiesAsPath) {
+    return undefined;
+  }
+
+  const sanitized = trimmed.replace(/^\/+/, "");
   return `${VIDEOS_API_BASE_URL}/${sanitized}`;
+}
+
+function extractYoutubeId(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  const iframeMatch = trimmed.match(
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{9,15})/i
+  );
+  if (iframeMatch) return iframeMatch[1];
+
+  const shortsMatch = trimmed.match(
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{9,15})/i
+  );
+  if (shortsMatch) return shortsMatch[1];
+
+  const watchParam = trimmed.match(/[?&]v=([A-Za-z0-9_-]{9,15})/i);
+  if (watchParam) return watchParam[1];
+
+  const youtuMatch = trimmed.match(/youtu\.be\/([A-Za-z0-9_-]{9,15})/i);
+  if (youtuMatch) return youtuMatch[1];
+
+  if (/^https?:\/\//i.test(trimmed) && isYoutubeValue(trimmed)) {
+    const pathMatch = trimmed.match(/\/([A-Za-z0-9_-]{9,15})(?:\?|$)/);
+    if (pathMatch) return pathMatch[1];
+  }
+
+  if (/^[A-Za-z0-9_-]{9,15}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return undefined;
+}
+
+function buildYoutubeUrl(candidate: string, videoId: string): string {
+  // Always use youtu.be format for consistency
+  return `https://youtu.be/${videoId}`;
+}
+
+function normalizeHttpUrl(candidate: string): string | undefined {
+  const trimmed = candidate.trim();
+  if (!trimmed) return undefined;
+
+  if (/^https?:\/{2}/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+
+  if (trimmed.startsWith("/")) {
+    return `${VIDEOS_API_BASE_URL}${trimmed}`;
+  }
+
+  return undefined;
+}
+
+function resolveShortMedia(video: VideoModel): ShortMedia {
+  const candidates = collectMediaCandidates(video);
+
+  console.log(
+    `[Shorts] Video ${video.id} (${video.title}) media candidates:`,
+    candidates
+  );
+  console.log(
+    `[Shorts] Video ${video.id} has videoLocation:`,
+    video.videoLocation
+  );
+
+  for (const candidate of candidates) {
+    const direct = resolveDirectVideoUrl(candidate);
+    if (direct) {
+      console.log(
+        `[Shorts] Video ${video.id} resolved as direct video: ${direct}`
+      );
+      return { kind: "video", uri: direct };
+    }
+  }
+
+  for (const candidate of candidates) {
+    const youtubeId = extractYoutubeId(candidate);
+    if (youtubeId) {
+      console.log(
+        `[Shorts] Video ${video.id} resolved as YouTube with ID: ${youtubeId} (from: ${candidate})`
+      );
+      return {
+        kind: "youtube",
+        videoId: youtubeId,
+        url: `https://youtu.be/${youtubeId}`,
+      };
+    }
+  }
+
+  console.log(`[Shorts] Video ${video.id} has no playable media`);
+  return { kind: "none" };
+}
+
+async function resolvePlayableSource(
+  video: VideoModel,
+  signal?: AbortSignal
+): Promise<PlayableShort["source"] | null> {
+  const media = resolveShortMedia(video);
+
+  if (media.kind === "video") {
+    return { uri: media.uri, origin: "direct" };
+  }
+
+  if (media.kind === "youtube") {
+    const stream = await fetchYoutubePlaybackUrl(media.videoId, signal);
+    if (stream) {
+      return { uri: stream, origin: "youtube" };
+    }
+  }
+
+  return null;
+}
+
+type ShortPlayerCardProps = {
+  item: PlayableShort;
+  isActive: boolean;
+  topInset: number;
+  bottomInset: number;
+};
+
+function ShortPlayerCard({
+  item,
+  isActive,
+  topInset,
+  bottomInset,
+}: ShortPlayerCardProps) {
+  const videoRef = useRef<ExpoVideo>(null);
+  const [isBuffering, setIsBuffering] = useState(true);
+  const [hasError, setHasError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const player = videoRef.current;
+    if (!player) return;
+
+    if (isActive && !hasError) {
+      player.playAsync().catch((error) => {
+        console.warn("[ShortPlayerCard] play failed", error);
+      });
+    } else {
+      player.pauseAsync().catch(() => {
+        /* no-op */
+      });
+    }
+  }, [isActive, hasError, item.source.uri]);
+
+  const handleStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+    if (!status.isLoaded) {
+      setHasError("Unable to load video");
+      return;
+    }
+
+    setIsBuffering(status.isBuffering ?? false);
+  }, []);
+
+  const handleError = useCallback((error: string) => {
+    console.error("[ShortPlayerCard] playback error", error);
+    setHasError("Playback error");
+  }, []);
+
+  const durationLabel = useMemo(
+    () => getDurationLabel(item.video),
+    [item.video]
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      <ExpoVideo
+        ref={videoRef}
+        style={{ flex: 1 }}
+        source={{ uri: item.source.uri }}
+        resizeMode={ResizeMode.COVER}
+        shouldPlay={isActive && !hasError}
+        isLooping
+        volume={1}
+        posterSource={{ uri: item.video.imageUrl }}
+        posterStyle={{ resizeMode: "cover" }}
+        usePoster
+        onPlaybackStatusUpdate={handleStatusUpdate}
+        onError={handleError}
+        onLoadStart={() => setIsBuffering(true)}
+        onLoad={() => setIsBuffering(false)}
+      />
+
+      <View
+        style={{
+          position: "absolute",
+          top: topInset + 16,
+          left: 16,
+          right: 16,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: "rgba(0,0,0,0.45)",
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+          }}
+        >
+          <Text
+            style={{
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: "600",
+              textTransform: "uppercase",
+            }}
+          >
+            {item.source.origin === "youtube"
+              ? "YouTube Stream"
+              : "Direct Video"}
+          </Text>
+        </View>
+        {durationLabel ? (
+          <View
+            style={{
+              backgroundColor: "rgba(0,0,0,0.45)",
+              borderRadius: 999,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+            }}
+          >
+            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>
+              {durationLabel}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View
+        style={{
+          position: "absolute",
+          left: 16,
+          right: 16,
+          bottom: bottomInset + 32,
+          backgroundColor: "rgba(0,0,0,0.4)",
+          borderRadius: 20,
+          paddingHorizontal: 18,
+          paddingVertical: 16,
+        }}
+      >
+        <Text
+          style={{
+            color: "#fff",
+            fontSize: 18,
+            fontWeight: "700",
+          }}
+          numberOfLines={2}
+        >
+          {item.video.title}
+        </Text>
+        {item.video.author ? (
+          <Text
+            style={{
+              color: "rgba(255,255,255,0.85)",
+              marginTop: 6,
+              fontSize: 13,
+              fontWeight: "600",
+              textTransform: "uppercase",
+            }}
+          >
+            {item.video.author}
+          </Text>
+        ) : null}
+      </View>
+
+      {(isBuffering || hasError) && (
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: hasError ? "rgba(0,0,0,0.6)" : "transparent",
+          }}
+        >
+          {hasError ? (
+            <View
+              style={{
+                paddingHorizontal: 24,
+                paddingVertical: 18,
+                borderRadius: 16,
+                backgroundColor: "rgba(0,0,0,0.7)",
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 16,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+              >
+                Unable to play this short
+              </Text>
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.75)",
+                  fontSize: 13,
+                  textAlign: "center",
+                  marginTop: 6,
+                }}
+              >
+                Please swipe to the next one.
+              </Text>
+            </View>
+          ) : (
+            <ActivityIndicator size="large" color="#ffffff" />
+          )}
+        </View>
+      )}
+    </View>
+  );
 }
 
 export default function ShortsScreen() {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
-  const [shorts, setShorts] = useState<VideoModel[]>([]);
+  const isFocused = useIsFocused();
+
+  const [shorts, setShorts] = useState<PlayableShort[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unsupportedCount, setUnsupportedCount] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
-  const [isPaused, setIsPaused] = useState(false);
-  const [statusById, setStatusById] = useState<
-    Record<string, { isLoaded: boolean; isBuffering: boolean }>
-  >({});
 
-  const listRef = useRef<FlatList<VideoModel>>(null);
-  const videoRefs = useRef<
-    Map<string, React.ComponentRef<typeof ExpoVideo>>
-  >(new Map());
-  const isPausedRef = useRef(false);
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 80 });
+  const requestRef = useRef<AbortController | null>(null);
 
-  const registerVideoRef = useCallback(
-    (id: string, ref: React.ComponentRef<typeof ExpoVideo> | null) => {
-      if (!ref) {
-        videoRefs.current.delete(id);
-        return;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 80 }).current;
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      const firstVisible = viewableItems.find(
+        (item) => typeof item.index === "number"
+      );
+      if (firstVisible && typeof firstVisible.index === "number") {
+        setActiveIndex(firstVisible.index);
+      }
+    }
+  ).current;
+
+  const hydrateShorts = useCallback(
+    async (videos: VideoModel[], signal?: AbortSignal) => {
+      const playable: PlayableShort[] = [];
+      let unsupported = 0;
+
+      for (const video of videos) {
+        if (signal?.aborted) break;
+        console.log(`[Shorts] Processing video ${video.id}: "${video.title}"`);
+        const source = await resolvePlayableSource(video, signal);
+        if (signal?.aborted) break;
+        if (source) {
+          console.log(
+            `[Shorts] ✓ Video ${video.id} resolved to ${source.origin}: ${source.uri.substring(0, 100)}...`
+          );
+          playable.push({ video, source });
+        } else {
+          console.log(`[Shorts] ✗ Video ${video.id} could not be resolved`);
+          unsupported += 1;
+        }
       }
 
-      videoRefs.current.set(id, ref);
-    },
-    []
-  );
-
-  const unloadVideos = useCallback(() => {
-    videoRefs.current.forEach((ref) => {
-      if (!ref) return;
-
-      try {
-        void ref.stopAsync?.();
-        void ref.unloadAsync?.();
-      } catch (err) {
-        console.warn("[ShortsScreen] Failed to unload video", err);
-      }
-    });
-
-    videoRefs.current.clear();
-  }, []);
-
-  const handlePlaybackStatusUpdate = useCallback(
-    (id: string) => (status: AVPlaybackStatus) => {
-      if (!status.isLoaded) {
-        setStatusById((previous) => ({
-          ...previous,
-          [id]: { isLoaded: false, isBuffering: false },
-        }));
-        return;
-      }
-
-      setStatusById((previous) => ({
-        ...previous,
-        [id]: {
-          isLoaded: true,
-          isBuffering: status.isBuffering ?? false,
-        },
-      }));
+      return { playable, unsupported };
     },
     []
   );
 
   const loadShorts = useCallback(
     async (isRefresh = false) => {
+      requestRef.current?.abort();
+      const controller = new AbortController();
+      requestRef.current = controller;
+
       if (isRefresh) {
         setRefreshing(true);
       } else {
@@ -129,362 +549,180 @@ export default function ShortsScreen() {
       }
 
       try {
-        const data = await fetchShorts({ limit: 30, sort: "latest" });
-        unloadVideos();
-        setStatusById({});
-        setShorts(data);
-        setError(null);
+        const videos = await fetchShorts({
+          limit: 40,
+          sort: "latest",
+          signal: controller.signal,
+        });
 
-        const firstId = data[0]?.id ?? null;
-        setActiveIndex(0);
-        setActiveVideoId(firstId);
-        setIsPaused(false);
-        isPausedRef.current = false;
-      } catch (err) {
-        console.error("[ShortsScreen] Failed to load shorts", err);
-        setError(getVideosErrorMessage(err));
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [unloadVideos]
-  );
+        console.log(
+          "[Shorts] Fetched videos from backend:",
+          videos.map((v) => ({
+            id: v.id,
+            title: v.title,
+            videoLocation: v.videoLocation,
+            rawKeys: Object.keys(v.raw || {}),
+          }))
+        );
 
-  useEffect(() => {
-    loadShorts(false);
-  }, [loadShorts]);
+        const { playable, unsupported } = await hydrateShorts(
+          videos,
+          controller.signal
+        );
 
-  useEffect(() => () => {
-    unloadVideos();
-  }, [unloadVideos]);
-
-  const onRefresh = useCallback(() => loadShorts(true), [loadShorts]);
-
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: Array<ViewToken> }) => {
-      if (!viewableItems.length) {
-        return;
-      }
-
-      const [primary] = viewableItems
-        .filter((token) => token.isViewable && token.index != null)
-        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-
-      if (!primary) {
-        return;
-      }
-
-      const nextIndex = primary.index ?? 0;
-      const nextItem = primary.item as VideoModel | undefined;
-      const nextId = nextItem?.id ?? null;
-      const nextUri = nextItem ? resolveVideoUri(nextItem) : undefined;
-
-      setActiveIndex(nextIndex);
-      setActiveVideoId(nextId);
-      setIsPaused(false);
-      isPausedRef.current = false;
-
-      videoRefs.current.forEach((ref, key) => {
-        if (!ref) return;
-
-        if (key === nextId && nextUri) {
-          void ref.playAsync();
-        } else {
-          void ref.pauseAsync();
-          void ref.setPositionAsync?.(0);
-        }
-      });
-    }
-  );
-
-  if (loading && shorts.length === 0) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background dark:bg-background-dark">
-        <ActivityIndicator size="large" color="#38bdf8" />
-        <Text className="mt-4 text-base text-muted dark:text-muted-dark">
-          Loading shorts feed…
-        </Text>
-      </View>
-    );
-  }
-
-  if (error && shorts.length === 0) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background px-6 dark:bg-background-dark">
-        <Text className="text-center text-lg font-semibold text-text dark:text-text-dark">
-          Shorts failed to load
-        </Text>
-        <Text className="mt-2 text-center text-sm text-muted dark:text-muted-dark">
-          {error}
-        </Text>
-        <Pressable
-          onPress={() => loadShorts(false)}
-          className="mt-6 rounded-full bg-primary px-5 py-2 dark:bg-primary-dark"
-        >
-          <Text className="text-sm font-semibold uppercase tracking-wide text-primary-foreground dark:text-primary-foreground-dark">
-            Retry
-          </Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  const pageHeight = Math.max(windowHeight, 1);
-  const topOffset = insets.top + 16;
-  const bottomOffset = insets.bottom + 32;
-
-  const renderShortItem = useCallback(
-    ({ item, index }: { item: VideoModel; index: number }) => {
-      const durationLabel = getDurationLabel(item);
-      const videoUri = resolveVideoUri(item);
-      const hasVideo = Boolean(videoUri);
-      const isActive =
-        activeVideoId !== null ? item.id === activeVideoId : index === activeIndex;
-      const status = statusById[item.id];
-      const isBuffering =
-        hasVideo &&
-        isActive &&
-        (!status?.isLoaded || status?.isBuffering);
-      const isPlaying = hasVideo && isActive && !isPaused && status?.isLoaded;
-
-      const handleTogglePlayback = () => {
-        if (!hasVideo || !isActive) {
+        if (controller.signal.aborted) {
           return;
         }
 
-        setIsPaused((previous) => {
-          const next = !previous;
-          isPausedRef.current = next;
-          const ref = videoRefs.current.get(item.id);
+        if (!playable.length) {
+          setError(
+            unsupported
+              ? "None of the available shorts are playable right now."
+              : "No shorts available yet."
+          );
+        } else {
+          setError(null);
+        }
 
-          if (ref) {
-            if (next) {
-              void ref.pauseAsync();
-            } else {
-              void ref.playAsync();
-            }
-          }
-
-          return next;
-        });
-      };
-
-      return (
-        <View style={{ height: pageHeight }}>
-          <Pressable
-            className="flex-1"
-            accessibilityRole={hasVideo ? "button" : undefined}
-            accessibilityHint={
-              hasVideo
-                ? isPaused
-                  ? "Resume playback"
-                  : "Pause playback"
-                : undefined
-            }
-            onPress={hasVideo ? handleTogglePlayback : undefined}
-          >
-            <View className="flex-1 bg-black">
-              {hasVideo ? (
-                <ExpoVideo
-                  ref={(ref) => registerVideoRef(item.id, ref)}
-                  source={{ uri: videoUri! }}
-                  style={{ flex: 1 }}
-                  resizeMode={ResizeMode.COVER}
-                  shouldPlay={isPlaying}
-                  isLooping
-                  isMuted={false}
-                  useNativeControls={false}
-                  posterSource={
-                    item.imageUrl ? { uri: item.imageUrl } : undefined
-                  }
-                  usePoster={!status?.isLoaded}
-                  onPlaybackStatusUpdate={handlePlaybackStatusUpdate(item.id)}
-                  onError={(err) => {
-                    console.error(
-                      `[ShortsScreen] Playback error for ${item.id}`,
-                      err
-                    );
-                  }}
-                />
-              ) : (
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  className="h-full w-full"
-                  resizeMode="cover"
-                />
-              )}
-            </View>
-
-            {isBuffering ? (
-              <View className="absolute inset-0 items-center justify-center">
-                <ActivityIndicator size="large" color="#ffffff" />
-              </View>
-            ) : null}
-
-            {hasVideo && isActive ? (
-              <View
-                pointerEvents="none"
-                className="absolute left-0 right-0 items-center"
-                style={{ top: topOffset + 48 }}
-              >
-                {isPaused ? (
-                  <Ionicons name="play-circle" size={80} color="#ffffff" />
-                ) : null}
-              </View>
-            ) : null}
-
-            <View
-              pointerEvents="none"
-              className="absolute left-0 right-0 px-4"
-              style={{ top: topOffset }}
-            >
-              <Text className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-                Shorts
-              </Text>
-              <Text className="mt-2 text-3xl font-semibold text-white">
-                {index + 1} / {shorts.length}
-              </Text>
-            </View>
-
-            {durationLabel ? (
-              <View
-                pointerEvents="none"
-                className="absolute right-4 rounded-full bg-black/70 px-3 py-1"
-                style={{ top: topOffset }}
-              >
-                <Text className="text-xs font-semibold uppercase tracking-wide text-white">
-                  {durationLabel}
-                </Text>
-              </View>
-            ) : null}
-
-            <View
-              pointerEvents="none"
-              className="absolute left-0 right-0 px-4"
-              style={{ bottom: bottomOffset }}
-            >
-              <View className="rounded-3xl bg-black/65 p-5">
-                <Text
-                  className="text-lg font-semibold text-white"
-                  numberOfLines={3}
-                >
-                  {item.title}
-                </Text>
-                {item.author ? (
-                  <Text className="mt-2 text-xs uppercase tracking-wide text-white/70">
-                    {item.author}
-                  </Text>
-                ) : null}
-                <Text className="mt-3 text-xs uppercase tracking-wide text-white/60">
-                  {hasVideo && isActive
-                    ? `Tap to ${isPaused ? "play" : "pause"} • Swipe up for more`
-                    : "Swipe up for more"}
-                </Text>
-              </View>
-            </View>
-
-            {!hasVideo ? (
-              <View
-                pointerEvents="none"
-                className="absolute bottom-28 left-0 right-0 px-4"
-              >
-                <View className="rounded-2xl bg-black/70 p-4">
-                  <Text className="text-center text-xs uppercase tracking-wide text-white/70">
-                    Video source unavailable. Showing preview image.
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-          </Pressable>
-        </View>
-      );
+        setShorts(playable);
+        setUnsupportedCount(unsupported);
+        setActiveIndex(0);
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.error("[ShortsScreen] Failed to load shorts", err);
+        setError(getVideosErrorMessage(err));
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
     },
-    [
-      activeIndex,
-      activeVideoId,
-      bottomOffset,
-      handlePlaybackStatusUpdate,
-      isPaused,
-      pageHeight,
-      registerVideoRef,
-      shorts.length,
-      statusById,
-      topOffset,
-    ]
+    [hydrateShorts]
   );
 
-  const getItemLayout = useCallback(
-    (_: ArrayLike<VideoModel> | null | undefined, index: number) => ({
-      length: pageHeight,
-      offset: pageHeight * index,
-      index,
-    }),
-    [pageHeight]
+  useEffect(() => {
+    void loadShorts();
+
+    return () => {
+      requestRef.current?.abort();
+    };
+  }, [loadShorts]);
+
+  const handleRefresh = useCallback(() => {
+    void loadShorts(true);
+  }, [loadShorts]);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: PlayableShort; index: number }) => (
+      <ShortPlayerCard
+        item={item}
+        isActive={isFocused && index === activeIndex}
+        topInset={insets.top}
+        bottomInset={insets.bottom}
+      />
+    ),
+    [activeIndex, insets.bottom, insets.top, isFocused]
   );
 
-  const emptyContentContainerStyle = shorts.length
-    ? undefined
-    : {
-        flexGrow: 1,
-        justifyContent: "center" as const,
-        paddingHorizontal: 24,
-      };
+  if (loading && !refreshing && shorts.length === 0) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#000",
+        }}
+      >
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text
+          style={{
+            color: "rgba(255,255,255,0.75)",
+            marginTop: 12,
+            fontSize: 14,
+          }}
+        >
+          Loading shorts…
+        </Text>
+      </View>
+    );
+  }
 
   return (
-    <View className="flex-1 bg-black dark:bg-black">
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
       <FlatList
-        ref={listRef}
         data={shorts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderShortItem}
-        showsVerticalScrollIndicator={false}
+        keyExtractor={(item) => item.video.id}
+        renderItem={renderItem}
         pagingEnabled
-        decelerationRate="fast"
+        showsVerticalScrollIndicator={false}
         snapToAlignment="start"
-        snapToInterval={pageHeight}
-        bounces={false}
-        onViewableItemsChanged={onViewableItemsChanged.current}
-        viewabilityConfig={viewabilityConfig.current}
+        decelerationRate="fast"
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        initialNumToRender={3}
+        windowSize={5}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#38bdf8"
+            onRefresh={handleRefresh}
+            tintColor="#ffffff"
+            colors={["#ffffff"]}
           />
         }
-        ListEmptyComponent={() => (
-          <View className="rounded-3xl border border-border/60 bg-surface-muted/40 p-6 dark:border-border-dark/60 dark:bg-surface-muted-dark/40">
-            <Text className="text-center text-sm text-muted dark:text-muted-dark">
-              No shorts are available right now. Check back soon.
-            </Text>
-          </View>
-        )}
-        contentContainerStyle={emptyContentContainerStyle}
-        getItemLayout={getItemLayout}
-        removeClippedSubviews
-        initialNumToRender={3}
-        windowSize={5}
+        ListEmptyComponent={
+          !loading ? (
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: 32,
+                backgroundColor: "#000",
+              }}
+            >
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.9)",
+                  fontSize: 16,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+              >
+                {error ?? "No shorts available yet."}
+              </Text>
+            </View>
+          ) : null
+        }
       />
-      {error && shorts.length ? (
+
+      {unsupportedCount > 0 ? (
         <View
-          className="absolute left-4 right-4 rounded-3xl border border-red-500/30 bg-red-500/10 p-4"
-          style={{ bottom: insets.bottom + 24 }}
+          style={{
+            position: "absolute",
+            bottom: insets.bottom + 12,
+            left: 16,
+            right: 16,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderRadius: 14,
+            backgroundColor: "rgba(0,0,0,0.55)",
+          }}
         >
-          <Text className="text-sm font-semibold text-red-500 dark:text-red-400">
-            Having trouble refreshing shorts.
-          </Text>
-          <Text className="mt-1 text-xs text-red-500/80 dark:text-red-200/80">
-            {error}
-          </Text>
-          <Pressable
-            onPress={() => loadShorts(false)}
-            className="mt-3 self-start rounded-full bg-red-500 px-4 py-2 dark:bg-red-400"
+          <Text
+            style={{
+              color: "rgba(255,255,255,0.85)",
+              fontSize: 13,
+              textAlign: "center",
+            }}
           >
-            <Text className="text-xs font-semibold uppercase tracking-wide text-white">
-              Try again
-            </Text>
-          </Pressable>
+            {unsupportedCount} short
+            {unsupportedCount === 1 ? "" : "s"} are still processing and
+            temporarily unavailable.
+          </Text>
         </View>
       ) : null}
     </View>

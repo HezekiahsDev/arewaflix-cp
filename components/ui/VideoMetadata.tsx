@@ -27,7 +27,7 @@ export function VideoMeta({
 
   return (
     <View className={`flex-row items-center flex-wrap ${className}`}>
-      <Text className="text-text-muted text-sm">
+      <Text className="text-gray-500 text-sm">
         <Text>{viewCount} Views</Text>
         <Text className="mx-2 font-bold">·</Text>
         <Text>{publishDate}</Text>
@@ -36,9 +36,7 @@ export function VideoMeta({
           onPress={() => onCategoryPress?.(video.category || "")}
           className="bg-transparent"
         >
-          <Text className="text-primary text-sm font-medium">
-            {categoryName}
-          </Text>
+          <Text className="text-blue-500 text-sm">{categoryName}</Text>
         </Pressable>
       </Text>
     </View>
@@ -58,10 +56,7 @@ export interface VideoTitleProps {
 export function VideoTitle({ title, className = "" }: VideoTitleProps) {
   return (
     <View className={className}>
-      <Text
-        className="text-2xl font-bold text-text-dark mb-0 leading-relaxed"
-        numberOfLines={2}
-      >
+      <Text className="text-xl font-bold text-white mb-0" numberOfLines={2}>
         {title}
       </Text>
     </View>
@@ -105,36 +100,34 @@ export function VideoActions({
 
   return (
     <View
-      className={`flex-row items-center justify-between py-4 my-4 bg-surface-dark/30 rounded-xl border border-border-dark ${className}`}
+      className={`flex-row items-center justify-between py-2 my-3 ${className}`}
     >
       {/* Like/Dislike Section */}
-      <View className="flex-1 mr-4 px-4">
-        <View className="flex-row items-center gap-4 w-full">
+      <View className="flex-1 mr-4">
+        <View className="flex-row items-center gap-3 w-full">
           {/* Like Button */}
           <Pressable
             onPress={onLikePress}
-            className={`flex-row items-center gap-3 px-3 py-2 rounded-full ${
-              hasLiked
-                ? "bg-primary/20 border border-primary"
-                : "bg-transparent border border-border-dark"
+            className={`flex-row items-center gap-2 px-2 py-1 rounded ${
+              hasLiked ? "bg-blue-100" : "bg-transparent"
             }`}
           >
             <Text
-              className={`text-xl ${hasLiked ? "text-primary" : "text-text-muted"}`}
+              className={`text-lg ${hasLiked ? "text-blue-500" : "text-gray-400"}`}
             >
               👍
             </Text>
             <Text
-              className={`text-sm font-semibold ${hasLiked ? "text-primary" : "text-text-muted"}`}
+              className={`text-sm ${hasLiked ? "text-blue-500" : "text-gray-400"}`}
             >
               {likes}
             </Text>
           </Pressable>
 
           {/* Progress Bar */}
-          <View className="flex-1 bg-surface-muted h-1.5 rounded-full overflow-hidden mx-3">
+          <View className="flex-1 bg-gray-200 h-1 rounded-full overflow-hidden mx-2">
             <View
-              className="bg-primary h-full rounded-full"
+              className="bg-green-500 h-full"
               style={{ width: `${likePercentage}%` }}
             />
           </View>
@@ -142,19 +135,17 @@ export function VideoActions({
           {/* Dislike Button */}
           <Pressable
             onPress={onDislikePress}
-            className={`flex-row items-center gap-3 px-3 py-2 rounded-full ${
-              hasDisliked
-                ? "bg-red-500/20 border border-red-500"
-                : "bg-transparent border border-border-dark"
+            className={`flex-row items-center gap-2 px-2 py-1 rounded ${
+              hasDisliked ? "bg-red-100" : "bg-transparent"
             }`}
           >
             <Text
-              className={`text-xl ${hasDisliked ? "text-red-500" : "text-text-muted"}`}
+              className={`text-lg ${hasDisliked ? "text-red-500" : "text-gray-400"}`}
             >
               👎
             </Text>
             <Text
-              className={`text-sm font-semibold ${hasDisliked ? "text-red-500" : "text-text-muted"}`}
+              className={`text-sm ${hasDisliked ? "text-red-500" : "text-gray-400"}`}
             >
               {dislikes}
             </Text>
@@ -165,10 +156,10 @@ export function VideoActions({
       {/* Share Button */}
       <Pressable
         onPress={onSharePress}
-        className="flex-row items-center gap-3 px-6 py-3 border border-border-dark rounded-full bg-surface-dark active:bg-surface-dark/70"
+        className="flex-row items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg"
       >
-        <Text className="text-xl">📤</Text>
-        <Text className="text-text-dark text-sm font-semibold">Share</Text>
+        <Text className="text-lg">📤</Text>
+        <Text className="text-gray-600 text-sm font-medium">Share</Text>
       </Pressable>
     </View>
   );
@@ -204,31 +195,29 @@ export function VideoPublisher({
   className = "",
 }: VideoPublisherProps) {
   return (
-    <View
-      className={`flex-row items-center justify-between py-5 border-b border-border-dark ${className}`}
-    >
+    <View className={`flex-row items-center justify-between py-4 ${className}`}>
       {/* Publisher Info */}
       <Pressable
         onPress={onPublisherPress}
-        className="flex-row items-center gap-4 flex-1 active:bg-surface-dark/30 rounded-xl p-2 -ml-2"
+        className="flex-row items-center gap-3 flex-1"
       >
         {/* Avatar */}
-        <View className="w-12 h-12 bg-surface-dark border border-border-dark rounded-full overflow-hidden">
+        <View className="w-11 h-11 bg-gray-300 rounded-full overflow-hidden">
           {publisherAvatar ? (
-            <Text className="text-2xl">📷</Text> // Placeholder - you can replace with proper Image component
+            <Text>📷</Text> // Placeholder - you can replace with proper Image component
           ) : (
-            <View className="w-full h-full bg-surface-dark flex items-center justify-center">
-              <Text className="text-text-muted text-2xl">👤</Text>
+            <View className="w-full h-full bg-gray-300 flex items-center justify-center">
+              <Text className="text-gray-500 text-lg">👤</Text>
             </View>
           )}
         </View>
 
         {/* Name and Subscribers */}
         <View className="flex-1">
-          <Text className="text-text-dark font-bold text-lg">
+          <Text className="text-white font-bold text-base">
             {publisherName}
           </Text>
-          <Text className="text-text-muted text-sm font-medium">
+          <Text className="text-gray-400 text-sm">
             {formatViewCount(subscriberCount)} Subscribers
           </Text>
         </View>
@@ -237,17 +226,13 @@ export function VideoPublisher({
       {/* Subscribe Button */}
       <Pressable
         onPress={onSubscribePress}
-        className={`px-8 py-3 rounded-full ${
+        className={`px-6 py-2 rounded-lg ${
           isSubscribed
-            ? "bg-surface-dark border border-border-dark"
-            : "bg-primary border border-primary"
+            ? "bg-gray-600 border border-gray-500"
+            : "bg-red-600 border border-red-600"
         }`}
       >
-        <Text
-          className={`font-bold text-sm ${
-            isSubscribed ? "text-text-muted" : "text-white"
-          }`}
-        >
+        <Text className="text-white font-medium text-sm">
           {isSubscribed ? "Subscribed" : "Subscribe"}
         </Text>
       </Pressable>
@@ -281,19 +266,17 @@ export function VideoDescription({
   const needsExpansion = description.length > 150; // Simple length check
 
   return (
-    <View
-      className={`bg-surface-dark border border-border-dark rounded-xl p-5 my-4 ${className}`}
-    >
+    <View className={`bg-gray-800 rounded-lg p-4 my-4 ${className}`}>
       <Text
-        className="text-text-dark text-sm leading-6"
+        className="text-gray-200 text-sm leading-5"
         numberOfLines={expanded ? undefined : maxLines}
       >
         {description || "No description available."}
       </Text>
 
       {needsExpansion && (
-        <Pressable onPress={onToggleExpanded} className="mt-3 self-start">
-          <Text className="text-primary text-sm font-semibold">
+        <Pressable onPress={onToggleExpanded} className="mt-2">
+          <Text className="text-gray-300 text-xs font-medium">
             {expanded ? "Show less" : "Show more"}
           </Text>
         </Pressable>

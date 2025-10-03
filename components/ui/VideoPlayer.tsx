@@ -1,6 +1,6 @@
 import { AVPlaybackStatus, Video as ExpoVideo, ResizeMode } from "expo-av";
 import React, { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, View } from "react-native";
 
 export interface VideoPlayerProps {
   /** Video source URI */
@@ -43,7 +43,7 @@ export default function VideoPlayer({
   className = "",
   videoRef: externalRef,
 }: VideoPlayerProps) {
-  const internalRef = useRef<ExpoVideo>(null);
+  const internalRef = useRef<ExpoVideo | null>(null);
   const videoRef = externalRef || internalRef;
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -93,11 +93,9 @@ export default function VideoPlayer({
   );
 
   return (
-    <View
-      className={`relative bg-background-dark rounded-lg overflow-hidden shadow-lg ${className}`}
-    >
+    <View className={`relative bg-black ${className}`}>
       {/* Responsive 16:9 Aspect Ratio Container */}
-      <View className="w-full bg-surface-dark" style={{ aspectRatio: 16 / 9 }}>
+      <View className="w-full" style={{ aspectRatio: 16 / 9 }}>
         <ExpoVideo
           ref={videoRef}
           source={{ uri }}
@@ -108,43 +106,27 @@ export default function VideoPlayer({
           resizeMode={ResizeMode.CONTAIN}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           onError={handleError}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: "100%",
-            height: "100%",
-          }}
+          style={{ flex: 1 }}
           {...(Platform.OS === "ios" && { playsinline })}
         />
 
         {/* Loading Indicator */}
         {isLoading && !hasError && (
-          <View className="absolute inset-0 flex items-center justify-center bg-overlay rounded-lg">
-            <View className="bg-surface-dark/80 rounded-2xl p-6 items-center backdrop-blur-sm">
-              <ActivityIndicator size="large" color="#38BDF8" />
-              <Text className="text-text-dark mt-3 font-medium">
-                Loading video...
-              </Text>
-            </View>
+          <View className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <ActivityIndicator size="large" color="#ffffff" />
           </View>
         )}
 
         {/* Error State */}
         {hasError && (
-          <View className="absolute inset-0 flex items-center justify-center bg-surface-dark rounded-lg">
-            <View className="text-center px-6 py-4 bg-card-dark rounded-xl border border-border-dark max-w-sm mx-4">
-              <View className="w-16 h-16 bg-danger/20 rounded-full items-center justify-center mx-auto mb-4">
-                <Text className="text-danger text-2xl">⚠️</Text>
-              </View>
-              <Text className="text-text-dark text-lg font-semibold mb-2">
+          <View className="absolute inset-0 flex items-center justify-center bg-black">
+            <View className="text-center px-4">
+              <View className="text-white text-lg mb-2">
                 Failed to load video
-              </Text>
-              <Text className="text-muted-dark text-sm leading-relaxed">
+              </View>
+              <View className="text-gray-400 text-sm">
                 Please check your connection and try again
-              </Text>
+              </View>
             </View>
           </View>
         )}
@@ -158,12 +140,12 @@ export const VideoPlayerUtils = {
   /**
    * Get video instance for manual control
    */
-  getVideoRef: (ref: React.RefObject<ExpoVideo>) => ref.current,
+  getVideoRef: (ref: React.RefObject<ExpoVideo | null>) => ref.current,
 
   /**
    * Play video programmatically
    */
-  play: async (ref: React.RefObject<ExpoVideo>) => {
+  play: async (ref: React.RefObject<ExpoVideo | null>) => {
     if (ref.current) {
       try {
         await ref.current.playAsync();
@@ -176,7 +158,7 @@ export const VideoPlayerUtils = {
   /**
    * Pause video programmatically
    */
-  pause: async (ref: React.RefObject<ExpoVideo>) => {
+  pause: async (ref: React.RefObject<ExpoVideo | null>) => {
     if (ref.current) {
       try {
         await ref.current.pauseAsync();
@@ -189,7 +171,10 @@ export const VideoPlayerUtils = {
   /**
    * Seek to specific position (in milliseconds)
    */
-  seek: async (ref: React.RefObject<ExpoVideo>, positionMillis: number) => {
+  seek: async (
+    ref: React.RefObject<ExpoVideo | null>,
+    positionMillis: number
+  ) => {
     if (ref.current) {
       try {
         await ref.current.setPositionAsync(positionMillis);
@@ -202,7 +187,7 @@ export const VideoPlayerUtils = {
   /**
    * Get current playback status
    */
-  getStatus: async (ref: React.RefObject<ExpoVideo>) => {
+  getStatus: async (ref: React.RefObject<ExpoVideo | null>) => {
     if (ref.current) {
       try {
         return await ref.current.getStatusAsync();

@@ -10,6 +10,9 @@ import React, {
 import {
   ActivityIndicator,
   FlatList,
+  Image,
+  Linking,
+  Pressable,
   RefreshControl,
   Text,
   View,
@@ -17,207 +20,57 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
-  VIDEOS_API_BASE_URL,
   Video as VideoModel,
   fetchShorts,
   getVideosErrorMessage,
 } from "@/lib/api/videos";
 import { getDurationLabel } from "@/lib/videos/formatters";
-import { fetchYoutubePlaybackUrl } from "@/lib/videos/youtube";
+import {
+  VideoMedia,
+  collectMediaCandidates,
+  resolveVideoMedia,
+} from "@/lib/videos/media";
 
 type ShortMedia =
   | { kind: "video"; uri: string }
-  | { kind: "youtube"; videoId: string; url: string }
+  | { kind: "external"; videoId: string; watchUrl: string }
   | { kind: "none" };
 
 type PlayableShort = {
   video: VideoModel;
-  source: {
-    uri: string;
-    origin: "direct" | "youtube";
-  };
+  source:
+    | {
+        uri: string;
+        origin: "direct";
+      }
+    | {
+        uri: null;
+        watchUrl: string;
+        videoId: string;
+        origin: "external";
+      };
 };
 
-const VIDEO_FILE_EXTENSIONS = [
-  "mp4",
-  "m4v",
-  "mov",
-  "webm",
-  "mkv",
-  "avi",
-  "flv",
-  "wmv",
-  "m3u8",
-  "ts",
-  "m2ts",
-];
+function toShortMedia(media: VideoMedia): ShortMedia {
+  if (media.kind === "direct") {
+    return { kind: "video", uri: media.uri };
+  }
 
-const MEDIA_CANDIDATE_KEYS = [
-  "video_location",
-  "videoLocation",
-  "video_url",
-  "videoUrl",
-  "videoFile",
-  "video_file",
-  "video",
-  "source",
-  "source_url",
-  "sourceUrl",
-  "stream_url",
-  "streamUrl",
-  "stream",
-  "download_url",
-  "downloadUrl",
-  "embed",
-  "embed_code",
-  "embedCode",
-  "iframe",
-  "iframe_src",
-  "iframeSrc",
-  "youtube",
-  "youtube_url",
-  "youtubeUrl",
-  "youtube_code",
-  "youtubeCode",
-  "youtube_id",
-  "youtubeId",
-  "video_id",
-  "videoId",
-  "youtube_link",
-  "youtubeLink",
-  "short_id",
-  "shortId",
-  "short_code",
-  "shortCode",
-  "code",
-  "url",
-];
+  if (media.kind === "external") {
+    return {
+      kind: "external",
+      videoId: media.videoId,
+      watchUrl: media.watchUrl,
+    };
+  }
 
-const MEDIA_COLLECTION_KEYS = ["sources", "videos", "urls", "media", "embeds"];
-
-function collectMediaCandidates(video: VideoModel): string[] {
-  const seen = new Set<string>();
-
-  const addCandidate = (value: unknown) => {
-    if (typeof value !== "string") return;
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    seen.add(trimmed);
-  };
-
-  addCandidate(video.videoLocation);
-
-  const raw = (video.raw ?? {}) as Record<string, unknown>;
-
-  MEDIA_CANDIDATE_KEYS.forEach((key) => addCandidate(raw[key]));
-
-  MEDIA_COLLECTION_KEYS.forEach((key) => {
-    const value = raw[key];
-    if (Array.isArray(value)) {
-      value.forEach((entry) => addCandidate(entry));
-    }
-  });
-
-  return Array.from(seen);
+  return { kind: "none" };
 }
 
-function isYoutubeValue(value: string): boolean {
-  return /youtube\.com|youtu\.be/i.test(value);
-}
-
-function hasPathIndicators(value: string): boolean {
-  return value.includes("/") || /\.[a-z0-9]{2,4}(\?|$)/i.test(value);
-}
-
-function resolveDirectVideoUrl(candidate: string): string | undefined {
-  const trimmed = candidate.trim();
-  if (!trimmed) return undefined;
-
-  if (isYoutubeValue(trimmed)) {
-    return undefined;
-  }
-
-  const lower = trimmed.toLowerCase();
-  const hasExtension = VIDEO_FILE_EXTENSIONS.some((ext) =>
-    lower.includes(`.${ext}`)
-  );
-
-  const qualifiesAsPath = hasExtension || hasPathIndicators(trimmed);
-
-  if (/^https?:\/{2}/i.test(trimmed)) {
-    return qualifiesAsPath ? trimmed : undefined;
-  }
-
-  if (trimmed.startsWith("//")) {
-    const normalized = `https:${trimmed}`;
-    return qualifiesAsPath ? normalized : undefined;
-  }
-
-  if (!qualifiesAsPath) {
-    return undefined;
-  }
-
-  const sanitized = trimmed.replace(/^\/+/, "");
-  return `${VIDEOS_API_BASE_URL}/${sanitized}`;
-}
-
-function extractYoutubeId(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-
-  const iframeMatch = trimmed.match(
-    /youtube\.com\/embed\/([A-Za-z0-9_-]{9,15})/i
-  );
-  if (iframeMatch) return iframeMatch[1];
-
-  const shortsMatch = trimmed.match(
-    /youtube\.com\/shorts\/([A-Za-z0-9_-]{9,15})/i
-  );
-  if (shortsMatch) return shortsMatch[1];
-
-  const watchParam = trimmed.match(/[?&]v=([A-Za-z0-9_-]{9,15})/i);
-  if (watchParam) return watchParam[1];
-
-  const youtuMatch = trimmed.match(/youtu\.be\/([A-Za-z0-9_-]{9,15})/i);
-  if (youtuMatch) return youtuMatch[1];
-
-  if (/^https?:\/\//i.test(trimmed) && isYoutubeValue(trimmed)) {
-    const pathMatch = trimmed.match(/\/([A-Za-z0-9_-]{9,15})(?:\?|$)/);
-    if (pathMatch) return pathMatch[1];
-  }
-
-  if (/^[A-Za-z0-9_-]{9,15}$/.test(trimmed)) {
-    return trimmed;
-  }
-
-  return undefined;
-}
-
-function buildYoutubeUrl(candidate: string, videoId: string): string {
-  // Always use youtu.be format for consistency
-  return `https://youtu.be/${videoId}`;
-}
-
-function normalizeHttpUrl(candidate: string): string | undefined {
-  const trimmed = candidate.trim();
-  if (!trimmed) return undefined;
-
-  if (/^https?:\/{2}/i.test(trimmed)) {
-    return trimmed;
-  }
-
-  if (trimmed.startsWith("//")) {
-    return `https:${trimmed}`;
-  }
-
-  if (trimmed.startsWith("/")) {
-    return `${VIDEOS_API_BASE_URL}${trimmed}`;
-  }
-
-  return undefined;
-}
-
-function resolveShortMedia(video: VideoModel): ShortMedia {
+function resolveShortMedia(video: VideoModel): {
+  media: VideoMedia;
+  short: ShortMedia;
+} {
   const candidates = collectMediaCandidates(video);
 
   console.log(
@@ -229,49 +82,36 @@ function resolveShortMedia(video: VideoModel): ShortMedia {
     video.videoLocation
   );
 
-  for (const candidate of candidates) {
-    const direct = resolveDirectVideoUrl(candidate);
-    if (direct) {
-      console.log(
-        `[Shorts] Video ${video.id} resolved as direct video: ${direct}`
-      );
-      return { kind: "video", uri: direct };
-    }
+  const media = resolveVideoMedia(video);
+  const short = toShortMedia(media);
+
+  if (media.kind === "direct") {
+    console.log(
+      `[Shorts] Video ${video.id} resolved as direct video: ${media.uri}`
+    );
+  } else {
+    console.log(`[Shorts] Video ${video.id} has no playable media`);
   }
 
-  for (const candidate of candidates) {
-    const youtubeId = extractYoutubeId(candidate);
-    if (youtubeId) {
-      console.log(
-        `[Shorts] Video ${video.id} resolved as YouTube with ID: ${youtubeId} (from: ${candidate})`
-      );
-      return {
-        kind: "youtube",
-        videoId: youtubeId,
-        url: `https://youtu.be/${youtubeId}`,
-      };
-    }
-  }
-
-  console.log(`[Shorts] Video ${video.id} has no playable media`);
-  return { kind: "none" };
+  return { media, short };
 }
 
 async function resolvePlayableSource(
-  video: VideoModel,
-  signal?: AbortSignal
+  video: VideoModel
 ): Promise<PlayableShort["source"] | null> {
-  const media = resolveShortMedia(video);
+  const { short } = resolveShortMedia(video);
 
-  if (media.kind === "video") {
-    return { uri: media.uri, origin: "direct" };
+  if (short.kind === "video") {
+    return { uri: short.uri, origin: "direct" };
   }
 
-  if (media.kind === "youtube") {
-    const stream = await fetchYoutubePlaybackUrl(media.videoId, signal);
-    if (stream) {
-      return { uri: stream, origin: "youtube" };
-    }
+  if (short.kind === "external") {
+    return {
+      uri: null,
+      watchUrl: short.watchUrl,
+      videoId: short.videoId,
+      origin: "external",
+    };
   }
 
   return null;
@@ -295,6 +135,8 @@ function ShortPlayerCard({
   const [hasError, setHasError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (item.source.origin === "external") return;
+
     const player = videoRef.current;
     if (!player) return;
 
@@ -307,7 +149,7 @@ function ShortPlayerCard({
         /* no-op */
       });
     }
-  }, [isActive, hasError, item.source.uri]);
+  }, [isActive, hasError, item.source]);
 
   const handleStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
@@ -323,6 +165,14 @@ function ShortPlayerCard({
     setHasError("Playback error");
   }, []);
 
+  const handleExternalVideoPress = useCallback(() => {
+    if (item.source.origin === "external") {
+      void Linking.openURL(item.source.watchUrl).catch((error) => {
+        console.error("[ShortPlayerCard] Failed to open external URL:", error);
+      });
+    }
+  }, [item.source]);
+
   const durationLabel = useMemo(
     () => getDurationLabel(item.video),
     [item.video]
@@ -330,22 +180,74 @@ function ShortPlayerCard({
 
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
-      <ExpoVideo
-        ref={videoRef}
-        style={{ flex: 1 }}
-        source={{ uri: item.source.uri }}
-        resizeMode={ResizeMode.COVER}
-        shouldPlay={isActive && !hasError}
-        isLooping
-        volume={1}
-        posterSource={{ uri: item.video.imageUrl }}
-        posterStyle={{ resizeMode: "cover" }}
-        usePoster
-        onPlaybackStatusUpdate={handleStatusUpdate}
-        onError={handleError}
-        onLoadStart={() => setIsBuffering(true)}
-        onLoad={() => setIsBuffering(false)}
-      />
+      {item.source.origin === "direct" ? (
+        <ExpoVideo
+          ref={videoRef}
+          style={{ flex: 1 }}
+          source={{ uri: item.source.uri }}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay={isActive && !hasError}
+          isLooping
+          volume={1}
+          posterSource={{ uri: item.video.imageUrl }}
+          posterStyle={{ resizeMode: "cover" }}
+          usePoster
+          onPlaybackStatusUpdate={handleStatusUpdate}
+          onError={handleError}
+          onLoadStart={() => setIsBuffering(true)}
+          onLoad={() => setIsBuffering(false)}
+        />
+      ) : (
+        <Pressable style={{ flex: 1 }} onPress={handleExternalVideoPress}>
+          <Image
+            source={{ uri: item.video.imageUrl }}
+            style={{ flex: 1 }}
+            resizeMode="cover"
+          />
+
+          {/* Play Button Overlay for External Videos */}
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0,0,0,0.3)",
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: "rgba(0,0,0,0.7)",
+                borderRadius: 50,
+                width: 80,
+                height: 80,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: "#fff", fontSize: 24 }}>▶</Text>
+            </View>
+            <Text
+              style={{
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: "600",
+                marginTop: 12,
+                textAlign: "center",
+                backgroundColor: "rgba(0,0,0,0.6)",
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 12,
+              }}
+            >
+              Tap to Open in Browser
+            </Text>
+          </View>
+        </Pressable>
+      )}
 
       <View
         style={{
@@ -374,8 +276,8 @@ function ShortPlayerCard({
               textTransform: "uppercase",
             }}
           >
-            {item.source.origin === "youtube"
-              ? "YouTube Stream"
+            {item.source.origin === "external"
+              ? "External Video"
               : "Direct Video"}
           </Text>
         </View>
@@ -518,11 +420,13 @@ export default function ShortsScreen() {
       for (const video of videos) {
         if (signal?.aborted) break;
         console.log(`[Shorts] Processing video ${video.id}: "${video.title}"`);
-        const source = await resolvePlayableSource(video, signal);
+        const source = await resolvePlayableSource(video);
         if (signal?.aborted) break;
         if (source) {
           console.log(
-            `[Shorts] ✓ Video ${video.id} resolved to ${source.origin}: ${source.uri.substring(0, 100)}...`
+            source.origin === "external"
+              ? `[Shorts] ✓ Video ${video.id} resolved to ${source.origin}: ${source.watchUrl}`
+              : `[Shorts] ✓ Video ${video.id} resolved to ${source.origin}: ${source.uri?.substring(0, 100)}...`
           );
           playable.push({ video, source });
         } else {

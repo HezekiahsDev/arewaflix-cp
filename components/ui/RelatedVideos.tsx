@@ -43,8 +43,8 @@ export function RelatedVideoCard({
       <View className={`${isListLayout ? "flex-row gap-3" : "flex-col"}`}>
         {/* Thumbnail Container */}
         <View
-          className={`relative bg-surface-dark border border-border-dark rounded-xl overflow-hidden shadow-md ${
-            isListLayout ? "w-44 h-28" : "w-full aspect-video"
+          className={`relative bg-gray-800 rounded-lg overflow-hidden ${
+            isListLayout ? "w-40 h-24" : "w-full aspect-video"
           }`}
         >
           {/* Video Thumbnail */}
@@ -55,33 +55,29 @@ export function RelatedVideoCard({
               resizeMode="cover"
             />
           ) : (
-            <View className="w-full h-full bg-surface-muted flex items-center justify-center">
-              <Text className="text-text-muted text-4xl">🎬</Text>
+            <View className="w-full h-full bg-gray-700 flex items-center justify-center">
+              <Text className="text-gray-400 text-4xl">🎬</Text>
             </View>
           )}
 
           {/* Play Button Overlay */}
           <View className="absolute inset-0 flex items-center justify-center">
-            <View className="w-10 h-10 bg-primary/90 rounded-full flex items-center justify-center shadow-lg border border-white/20">
-              <Text className="text-white text-xl ml-0.5">▶</Text>
+            <View className="w-8 h-8 bg-black/60 rounded-full flex items-center justify-center">
+              <Text className="text-white text-lg ml-0.5">▶️</Text>
             </View>
           </View>
 
           {/* Duration Badge */}
           {duration && (
-            <View className="absolute bottom-2 right-2 bg-background-dark/90 rounded-md px-2 py-1">
-              <Text className="text-text-dark text-xs font-semibold">
-                {duration}
-              </Text>
+            <View className="absolute bottom-2 right-2 bg-black/80 rounded px-1.5 py-0.5">
+              <Text className="text-white text-xs font-medium">{duration}</Text>
             </View>
           )}
 
           {/* Short Video Badge */}
           {video.isShort && (
-            <View className="absolute top-2 left-2 bg-accent rounded-md px-2 py-1">
-              <Text className="text-background-dark text-xs font-bold">
-                SHORT
-              </Text>
+            <View className="absolute top-2 left-2 bg-yellow-500 rounded px-1.5 py-0.5">
+              <Text className="text-black text-xs font-bold">SHORT</Text>
             </View>
           )}
         </View>
@@ -90,7 +86,7 @@ export function RelatedVideoCard({
         <View className={`${isListLayout ? "flex-1" : "mt-3"}`}>
           {/* Title */}
           <Text
-            className={`font-bold text-text-dark leading-6 ${
+            className={`font-semibold text-white leading-5 ${
               isListLayout ? "text-sm" : "text-base"
             }`}
             numberOfLines={isListLayout ? 2 : 2}
@@ -100,7 +96,7 @@ export function RelatedVideoCard({
 
           {/* Author */}
           <Text
-            className={`text-text-muted mt-2 font-medium ${
+            className={`text-gray-400 mt-1 ${
               isListLayout ? "text-xs" : "text-sm"
             }`}
             numberOfLines={1}

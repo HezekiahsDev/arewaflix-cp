@@ -189,11 +189,11 @@ export default function VideoControls({
       />
 
       {/* Top Controls */}
-      <View className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent">
+      <View className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/60 to-transparent">
         <View className="flex-row items-center justify-between">
           {/* Back Button */}
-          <Pressable className="bg-overlay rounded-full p-3 active:bg-surface-dark/80">
-            <Text className="text-text-dark text-lg font-bold">←</Text>
+          <Pressable className="p-2">
+            <Text className="text-white text-lg">←</Text>
           </Pressable>
 
           {/* Right Side Controls */}
@@ -206,9 +206,9 @@ export default function VideoControls({
                     setShowQualityMenu(!showQualityMenu);
                     resetAutoHideTimer();
                   }}
-                  className="px-4 py-2 bg-overlay border border-border-dark rounded-full active:bg-surface-dark/80"
+                  className="px-3 py-1 bg-black/40 rounded"
                 >
-                  <Text className="text-text-dark text-sm font-semibold">
+                  <Text className="text-white text-sm font-medium">
                     {currentQuality.toUpperCase()}
                   </Text>
                 </Pressable>
@@ -303,17 +303,12 @@ export default function VideoControls({
         {/* Progress Bar */}
         <Pressable
           onPress={handleProgressPress}
-          className="mb-4 h-2 bg-surface-muted/50 rounded-full overflow-hidden backdrop-blur-sm"
+          className="mb-4 h-1 bg-white/30 rounded-full overflow-hidden"
         >
           <View
-            className="h-full bg-primary rounded-full relative"
+            className="h-full bg-red-500 rounded-full"
             style={{ width: `${progressPercentage}%` }}
-          >
-            <View
-              className="absolute right-0 top-1/2 w-3 h-3 bg-white rounded-full shadow-md"
-              style={{ transform: [{ translateY: -6 }, { translateX: 6 }] }}
-            />
-          </View>
+          />
         </Pressable>
 
         {/* Bottom Row Controls */}
@@ -349,13 +344,16 @@ export default function VideoControls({
               )}
             </View>
 
-            {/* Fullscreen Button */}
+            {/* Fullscreen Toggle */}
             <Pressable
-              onPress={onFullscreenToggle}
-              className="p-2 active:bg-surface-dark/50 rounded-full"
+              onPress={() => {
+                onFullscreenToggle?.();
+                resetAutoHideTimer();
+              }}
+              className="p-2"
             >
-              <Text className="text-text-dark text-xl">
-                {isFullscreen ? "⛶" : "⛶"}
+              <Text className="text-white text-lg">
+                {isFullscreen ? "⏹️" : "⛶"}
               </Text>
             </Pressable>
           </View>

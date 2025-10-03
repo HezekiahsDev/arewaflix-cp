@@ -14,6 +14,7 @@ import {
   getVideosErrorMessage,
   Video,
 } from "@/lib/api/videos";
+import { resolveVideoMedia } from "@/lib/videos/media";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -74,6 +75,28 @@ export default function HomeScreen() {
       setTopVideos(topRatedVideos);
       setShortVideos(shorts);
       setError(null);
+
+      // Log featured videos for external video detection analysis
+      console.log("[HomeScreen] Loaded featured videos:", defaultVideos.length);
+      defaultVideos.forEach((video, index) => {
+        const media = resolveVideoMedia(video);
+        console.log(`[HomeScreen] Featured Video ${index + 1}:`, {
+          id: video.id,
+          title: video.title,
+          videoLocation: video.videoLocation,
+          videoId: video.videoId,
+          hasVideoId: !!video.videoId,
+          hasVideoLocation: !!video.videoLocation,
+          isExternalCandidate: !!video.videoId && !video.videoLocation,
+          resolvedMediaType: media.kind,
+          ...(media.kind === "external"
+            ? {
+                externalVideoId: media.videoId,
+                externalWatchUrl: media.watchUrl,
+              }
+            : {}),
+        });
+      });
     } catch (err) {
       setError(getVideosErrorMessage(err));
     } finally {

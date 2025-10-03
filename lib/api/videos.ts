@@ -65,6 +65,7 @@ export type Video = {
   category?: string;
   createdAt?: string;
   videoLocation?: string;
+  videoId?: string;
   isShort: boolean;
   raw?: RawVideo;
 };
@@ -139,65 +140,6 @@ export async function fetchShorts(
   );
 
   return data.map((video) => normalizeVideo({ ...video, is_short: true }));
-}
-
-export async function fetchRelatedVideos(
-  currentVideo: Video,
-  options: FetchVideosOptions = {}
-): Promise<Video[]> {
-  const { limit = 12, signal, headers } = options;
-
-  try {
-    // Try to fetch videos from the same category first
-    if (currentVideo.category) {
-      const categoryVideos = await fetchFilteredVideos("popular", {
-        limit: Math.ceil(limit * 0.7), // 70% from same category
-        signal,
-        headers,
-      });
-
-      const sameCategoryVideos = categoryVideos.filter(
-        (video) =>
-          video.id !== currentVideo.id &&
-          video.category === currentVideo.category
-      );
-
-      if (sameCategoryVideos.length >= limit) {
-        return sameCategoryVideos.slice(0, limit);
-      }
-
-      // Fill remaining slots with popular videos
-      const remainingSlots = limit - sameCategoryVideos.length;
-      const popularVideos = await fetchFilteredVideos("popular", {
-        limit: remainingSlots * 2, // Get more to filter out duplicates
-        signal,
-        headers,
-      });
-
-      const additionalVideos = popularVideos.filter(
-        (video) =>
-          video.id !== currentVideo.id &&
-          !sameCategoryVideos.some((existing) => existing.id === video.id)
-      );
-
-      return [...sameCategoryVideos, ...additionalVideos].slice(0, limit);
-    }
-
-    // Fallback: just get popular videos excluding current
-    const allVideos = await fetchFilteredVideos("popular", {
-      limit: limit * 2, // Get more to account for filtering
-      signal,
-      headers,
-    });
-
-    return allVideos
-      .filter((video) => video.id !== currentVideo.id)
-      .slice(0, limit);
-  } catch (error) {
-    console.error("Failed to fetch related videos:", error);
-    // Return empty array on error rather than throwing
-    return [];
-  }
 }
 
 function getSanitizedBaseUrl(value?: string): string {
@@ -300,6 +242,9 @@ function normalizeVideo(video: RawVideo): Video {
   const videoLocation = asOptionalString(
     extractFirst(["video_location", "videoLocation"], video)
   );
+  const videoId = asOptionalString(
+    extractFirst(["video_id", "videoId"], video)
+  );
   const isShort = normalizeBoolean(
     extractFirst(["is_short", "isShort"], video)
   );
@@ -339,6 +284,7 @@ function normalizeVideo(video: RawVideo): Video {
       return createdAt;
     })(),
     videoLocation,
+    videoId,
     isShort,
     raw: video,
   };

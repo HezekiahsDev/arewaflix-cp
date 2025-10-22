@@ -132,10 +132,19 @@ export interface LoginRequest {
 export interface AuthResponse {
   success: boolean;
   message: string;
-  data: {
+  data?: {
     user: AuthUser;
     token: string;
   };
+  error?: {
+    message: string;
+    details?: string;
+    stack?: string;
+  };
+  errors?: Array<{
+    field: string;
+    message: string;
+  }>;
 }
 
 export async function signup(data: SignupRequest): Promise<AuthResponse> {
@@ -170,7 +179,19 @@ export async function signup(data: SignupRequest): Promise<AuthResponse> {
     if (!response.ok) {
       // Return the error response if it's structured
       if (result && typeof result === "object" && "success" in result) {
-        // Normalize error message from different formats
+        // Handle validation errors with errors array (field-specific errors)
+        if (result.errors && Array.isArray(result.errors)) {
+          const fieldErrors = result.errors
+            .map((err: any) => `${err.field}: ${err.message}`)
+            .join(", ");
+          return {
+            success: false,
+            message: result.message || "Validation failed",
+            errors: result.errors,
+          } as AuthResponse;
+        }
+
+        // Handle other structured errors
         const errorMessage =
           result.error?.message ||
           result.message ||
@@ -178,7 +199,7 @@ export async function signup(data: SignupRequest): Promise<AuthResponse> {
         return {
           success: false,
           message: errorMessage,
-          data: { user: {} as AuthUser, token: "" },
+          error: result.error,
         } as AuthResponse;
       }
       throw new Error(
@@ -229,7 +250,16 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     if (!response.ok) {
       // Return the error response if it's structured
       if (result && typeof result === "object" && "success" in result) {
-        // Normalize error message from different formats
+        // Handle validation errors with errors array (field-specific errors)
+        if (result.errors && Array.isArray(result.errors)) {
+          return {
+            success: false,
+            message: result.message || "Validation failed",
+            errors: result.errors,
+          } as AuthResponse;
+        }
+
+        // Handle other structured errors
         const errorMessage =
           result.error?.message ||
           result.message ||
@@ -237,7 +267,7 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
         return {
           success: false,
           message: errorMessage,
-          data: { user: {} as AuthUser, token: "" },
+          error: result.error,
         } as AuthResponse;
       }
       throw new Error(
@@ -259,7 +289,12 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
 export interface ProfileResponse {
   success: boolean;
   message: string;
-  data: AuthUser;
+  data?: AuthUser;
+  error?: {
+    message: string;
+    details?: string;
+    stack?: string;
+  };
 }
 
 export async function getProfile(token: string): Promise<ProfileResponse> {
@@ -294,7 +329,7 @@ export async function getProfile(token: string): Promise<ProfileResponse> {
     if (!response.ok) {
       // Return the error response if it's structured
       if (result && typeof result === "object" && "success" in result) {
-        // Normalize error message from different formats
+        // Handle structured errors
         const errorMessage =
           result.error?.message ||
           result.message ||
@@ -302,7 +337,7 @@ export async function getProfile(token: string): Promise<ProfileResponse> {
         return {
           success: false,
           message: errorMessage,
-          data: {} as AuthUser,
+          error: result.error,
         } as ProfileResponse;
       }
       throw new Error(

@@ -281,6 +281,7 @@ export default function PlayerScreen() {
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isLoadingLikes, setIsLoadingLikes] = useState(false);
   const [isPostingReaction, setIsPostingReaction] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Error states
   const [videoError, setVideoError] = useState<string | null>(null);
@@ -288,6 +289,7 @@ export default function PlayerScreen() {
   const [likesError, setLikesError] = useState<string | null>(null);
 
   const COMMENTS_PAGE_LIMIT = 20;
+  const COMMENTS_REFRESH_INTERVAL = 30000; // 30 seconds
 
   const { user, token } = useAuth();
 
@@ -363,6 +365,45 @@ export default function PlayerScreen() {
       clearHideControlsTimeout();
     }
   }, [hasFinished, clearHideControlsTimeout]);
+
+  // Function to refresh comments (reusable for initial load and periodic updates)
+  const refreshComments = useCallback(
+    async (signal?: AbortSignal, silent = false) => {
+      if (!videoId) return;
+
+      if (!silent) {
+        setIsLoadingComments(true);
+        setCommentsError(null);
+      }
+
+      try {
+        const commentsResponse = await fetchVideoComments(videoId, {
+          page: 1,
+          limit: COMMENTS_PAGE_LIMIT,
+          signal,
+        });
+
+        setComments(commentsResponse.data);
+        setCommentsPage(commentsResponse.pagination?.page ?? 1);
+        setCommentsTotalPages(commentsResponse.pagination?.totalPages ?? 1);
+        // Clear any previous errors on successful refresh only if it was a user-initiated action
+        if (commentsError && !silent) {
+          setCommentsError(null);
+        }
+      } catch (error) {
+        // Only show errors for user-initiated actions (not silent background refreshes)
+        if ((error as Error).name !== "AbortError" && !silent) {
+          setCommentsError("Failed to load comments. Please try again later.");
+        }
+        // Silent failures are ignored to avoid disrupting the user experience
+      } finally {
+        if (!silent) {
+          setIsLoadingComments(false);
+        }
+      }
+    },
+    [videoId, commentsError]
+  );
 
   // Load comments, likes, and user reaction when videoId is available (page 1)
   useEffect(() => {
@@ -440,6 +481,20 @@ export default function PlayerScreen() {
       controller.abort();
     };
   }, [videoId, token]);
+
+  // Auto-refresh comments at safe intervals
+  useEffect(() => {
+    if (!videoId) return;
+
+    const intervalId = setInterval(() => {
+      // Silently refresh comments in the background
+      refreshComments(undefined, true);
+    }, COMMENTS_REFRESH_INTERVAL);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [videoId, refreshComments]);
 
   // Track view when video loads and starts playing
   useEffect(() => {
@@ -685,20 +740,14 @@ export default function PlayerScreen() {
       setCommentDraft("");
 
       // Refetch comments (page 1) after posting and reset pagination
-      const commentsResponse = await fetchVideoComments(videoId, {
-        page: 1,
-        limit: COMMENTS_PAGE_LIMIT,
-      });
-      setComments(commentsResponse.data);
-      setCommentsPage(commentsResponse.pagination?.page ?? 1);
-      setCommentsTotalPages(commentsResponse.pagination?.totalPages ?? 1);
+      await refreshComments();
     } catch (error) {
       setCommentsError("Failed to post comment. Please try again.");
       // Don't clear the draft on error so user can retry
     } finally {
       setIsPostingComment(false);
     }
-  }, [commentDraft, videoId, token]);
+  }, [commentDraft, videoId, token, refreshComments]);
 
   const loadMoreComments = useCallback(async () => {
     if (!videoId) return;
@@ -739,6 +788,16 @@ export default function PlayerScreen() {
     }
   }, [isLoaded, isPlaying, registerInteraction]);
 
+  const handleFullscreenUpdate = useCallback(
+    (event: { fullscreenUpdate: number }) => {
+      // 0 = will dismiss, 1 = will present, 2 = did dismiss, 3 = did present
+      const isEnteringOrInFullscreen =
+        event.fullscreenUpdate === 1 || event.fullscreenUpdate === 3;
+      setIsFullscreen(isEnteringOrInFullscreen);
+    },
+    []
+  );
+
   const handleEnterFullscreen = useCallback(async () => {
     const video = videoRef.current;
     if (!video || !isLoaded) {
@@ -751,6 +810,19 @@ export default function PlayerScreen() {
       // Failed to enter fullscreen
     }
   }, [isLoaded, registerInteraction]);
+
+  const handleExitFullscreen = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+    registerInteraction();
+    try {
+      await video.dismissFullscreenPlayer();
+    } catch (error) {
+      // Failed to exit fullscreen or not in fullscreen
+    }
+  }, [registerInteraction]);
 
   const handleReplay = useCallback(async () => {
     const video = videoRef.current;
@@ -833,6 +905,7 @@ export default function PlayerScreen() {
           usePoster={Boolean(poster)}
           posterSource={poster ? { uri: poster } : undefined}
           onPlaybackStatusUpdate={handleStatusUpdate}
+          onFullscreenUpdate={handleFullscreenUpdate}
           onLoadStart={handleLoadStart}
           onLoad={handleLoad}
           onError={handleError}
@@ -918,9 +991,13 @@ export default function PlayerScreen() {
                 </Text>
                 <Pressable
                   style={styles.dismissButton}
-                  onPress={() => router.back()}
+                  onPress={
+                    isFullscreen ? handleExitFullscreen : () => router.back()
+                  }
                   accessibilityRole="button"
-                  accessibilityLabel="Close video"
+                  accessibilityLabel={
+                    isFullscreen ? "Exit fullscreen" : "Close video"
+                  }
                 >
                   <Ionicons name="close" size={22} color="#fff" />
                 </Pressable>
@@ -1217,10 +1294,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 999,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0,0,0,0.75)",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
   overlayCenterRow: {
     flexDirection: "row",

@@ -80,7 +80,7 @@ export default function ProfileScreen() {
 
     try {
       const response = await getProfile(token);
-      if (response.success) {
+      if (response.success && response.data) {
         setProfile(response.data);
       } else {
         setError(response.message);

@@ -87,11 +87,19 @@ export default function SignupScreen() {
         gender,
       });
 
-      if (response.success) {
+      if (response.success && response.data) {
         signIn(response.data.user, response.data.token);
         router.replace("/");
       } else {
-        setError(response.message || "Signup failed. Please try again.");
+        // Handle field-specific validation errors
+        if (response.errors && Array.isArray(response.errors)) {
+          const errorMessages = response.errors
+            .map((err) => `${err.field}: ${err.message}`)
+            .join("\n");
+          setError(errorMessages || "Validation failed. Please try again.");
+        } else {
+          setError(response.message || "Signup failed. Please try again.");
+        }
       }
     } catch (err) {
       setError(

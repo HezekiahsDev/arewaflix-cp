@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import { NativeModules, Platform } from "react-native";
 
-const DEFAULT_BASE_URL = "http://localhost:3000";
+const DEFAULT_BASE_URL = "https://api.arewaflix.io";
 
 const API_BASE_URL = getSanitizedBaseUrl(
   typeof process !== "undefined" && process.env
@@ -140,6 +140,36 @@ export async function fetchShorts(
   );
 
   return data.map((video) => normalizeVideo({ ...video, is_short: true }));
+}
+
+export type SearchVideosOptions = {
+  q: string;
+  limit?: number;
+  page?: number;
+  approved?: 0 | 1;
+  privacy?: 0 | 1;
+  featured?: 0 | 1;
+  signal?: AbortSignal;
+  headers?: HeadersInit;
+};
+
+export async function searchVideos(
+  options: SearchVideosOptions
+): Promise<Video[]> {
+  const { q, limit, page, approved, privacy, featured, signal, headers } =
+    options;
+
+  if (!q || !q.trim()) {
+    return [];
+  }
+
+  const data = await request(
+    "/search",
+    { q: q.trim(), limit, page, approved, privacy, featured },
+    { signal, headers }
+  );
+
+  return data.map(normalizeVideo);
 }
 
 function getSanitizedBaseUrl(value?: string): string {

@@ -1,5 +1,6 @@
 import { useIsFocused } from "@react-navigation/native";
 import { AVPlaybackStatus, Video as ExpoVideo, ResizeMode } from "expo-av";
+import { useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -165,10 +166,12 @@ function ShortPlayerCard({
     setHasError("Playback error");
   }, []);
 
+  const router = useRouter();
+
   const handleExternalVideoPress = useCallback(() => {
     if (item.source.origin === "external") {
-      void Linking.openURL(item.source.watchUrl).catch((error) => {
-        console.error("[ShortPlayerCard] Failed to open external URL:", error);
+      Linking.openURL(item.source.watchUrl).catch((err) => {
+        console.error("Failed to open external URL:", err);
       });
     }
   }, [item.source]);

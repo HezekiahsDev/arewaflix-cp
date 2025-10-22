@@ -1,5 +1,7 @@
 import { NavIcon, NavIconName } from "@/assets/icons/navIcons";
-import { Tabs } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
+import { FontAwesome } from "@expo/vector-icons";
+import { Tabs, useRouter } from "expo-router";
 import React from "react";
 
 import { useColorScheme } from "@/components/useColorScheme";
@@ -12,6 +14,9 @@ type IconProps = {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { isAuthenticated } = useAuth();
+
+  const router = useRouter();
 
   return (
     <Tabs
@@ -74,12 +79,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="categories"
+        name="search"
         options={{
-          title: "Categories",
+          title: "Search",
           tabBarIcon: ({ color, focused }) => (
             <NavIcon
-              name={"explore" as NavIconName}
+              name={"search" as NavIconName}
               size={24}
               strokeColor={color}
               accentColor={color}
@@ -89,19 +94,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="more"
+        name="profile"
         options={{
-          title: "More",
+          title: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <NavIcon
-              name={"explore" as NavIconName}
+            <FontAwesome
+              name="user"
               size={24}
-              strokeColor={color}
-              accentColor={color}
+              color={color}
               style={{ opacity: focused ? 1 : 0.7 }}
             />
           ),
         }}
+        listeners={() => ({
+          tabPress: (e) => {
+            // If unauthenticated, prevent default navigation and send to login
+            if (!isAuthenticated) {
+              e.preventDefault();
+              router.push("/auth/login");
+            }
+          },
+        })}
       />
     </Tabs>
   );

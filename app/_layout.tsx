@@ -5,7 +5,7 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo } from "react";
@@ -15,10 +15,9 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import "../global.css";
 
 import AppHeader from "@/components/AppHeader";
-import { useColorScheme } from "@/components/useColorScheme";
-import Colors, { NavigationColors } from "@/constants/Colors";
-import { AuthProvider } from "@/context/AuthContext";
-import { colorScheme as nativewindColorScheme } from "nativewind";
+import Colors from "@/constants/Colors";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { useColorScheme as useNativewindColorScheme } from "nativewind";
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -62,23 +61,54 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { colorScheme, setColorScheme } = useNativewindColorScheme();
   const scheme = colorScheme ?? "light";
+  const pathname = usePathname();
+  const isAuthRoute = pathname?.startsWith("/auth");
+  // Consider root path (/) or (tabs) index and some tabs as public
+  const publicRoutes = new Set([
+    "/",
+    "",
+    "(tabs)",
+    "/(tabs)",
+    "/shorts",
+    "/trending",
+    "/categories",
+    "/player",
+  ]);
+
+  const isPublicRoute = publicRoutes.has(
+    // normalize pathname by trimming trailing slash if present
+    pathname?.replace(/\/$/, "") ?? ""
+  );
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
+
+  // Auth guarding
+  // Allow unauthenticated users to access public routes (tabs index, shorts, trending, categories).
+  // Only redirect to login when visiting a non-auth, non-public route while unauthenticated.
+  useEffect(() => {
+    const isProtectedRoute = !isAuthRoute && !isPublicRoute;
+
+    if (!isAuthenticated && isProtectedRoute) {
+      router.replace("/auth/login");
+    } else if (isAuthenticated && isAuthRoute) {
+      // If authenticated users land on auth routes, send them to root
+      router.replace("/");
+    }
+  }, [isAuthenticated, isAuthRoute, isPublicRoute, router]);
 
   useEffect(() => {
-    nativewindColorScheme.set(scheme);
-  }, [scheme]);
+    setColorScheme(scheme);
+  }, [scheme, setColorScheme]);
 
   const navigationTheme = useMemo(() => {
     const base = scheme === "dark" ? DarkTheme : DefaultTheme;
-    const semantic =
-      scheme === "dark" ? NavigationColors.dark : NavigationColors.light;
 
     return {
       ...base,
       colors: {
         ...base.colors,
-        ...semantic.colors,
       },
     } as typeof DefaultTheme;
   }, [scheme]);
@@ -91,15 +121,15 @@ function RootLayoutNav() {
           style={{ flex: 1, backgroundColor: Colors[scheme].background }}
         >
           <StatusBar style={Colors[scheme].statusBarStyle} />
-          <AppHeader colorScheme={scheme} />
+          {!isAuthRoute && <AppHeader colorScheme={scheme} />}
           <View style={{ flex: 1 }}>
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+              <Stack.Screen name="auth" options={{ headerShown: false }} />
               <Stack.Screen
                 name="player"
                 options={{
-                  presentation: "modal",
                   headerShown: false,
                 }}
               />

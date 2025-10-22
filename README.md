@@ -7,7 +7,7 @@ Expo Router application for browsing and managing Arewaflix videos. The project 
 - Node.js 18 or newer
 - npm 9+
 - Expo CLI (`npm install -g expo`), or run via `npx expo`
-- A running videos service reachable from the device (defaults to `http://localhost:3000`)
+- A running videos service reachable from the device (defaults to `https://api.arewaflix.io`)
 
 ## Quick start
 
@@ -24,7 +24,7 @@ Choose the **i** key inside Expo CLI to launch the iOS simulator or scan the QR 
 The API client reads `EXPO_PUBLIC_API_BASE_URL`. Create a `.env` file if you need to override the default loopback host:
 
 ```bash
-EXPO_PUBLIC_API_BASE_URL=http://192.168.1.42:3000
+EXPO_PUBLIC_API_BASE_URL=https://api.arewaflix.io
 ```
 
 When testing on an iOS device, make sure the host is reachable over the network (use your machine’s LAN IP instead of `localhost`).

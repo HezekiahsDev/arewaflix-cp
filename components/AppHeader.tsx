@@ -1,5 +1,6 @@
 import Feather from "@expo/vector-icons/Feather";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -21,6 +22,7 @@ const LOGO_DARK = require("../assets/images/af-logo-light.png");
 
 export default function AppHeader({ colorScheme }: AppHeaderProps) {
   const { isAuthenticated, user } = useAuth();
+  const router = useRouter();
 
   const palette = Colors[colorScheme];
   const logoSource = colorScheme === "dark" ? LOGO_DARK : LOGO_LIGHT;
@@ -35,14 +37,13 @@ export default function AppHeader({ colorScheme }: AppHeaderProps) {
   }, [isSearchOpen]);
 
   const handleLoginPress = useCallback(() => {
-    // TODO: Replace with real authentication flow.
-    console.log("Login button pressed");
+    // Navigate to the auth/login screen
+    router.push("/auth/login");
   }, []);
 
   const handleProfilePress = useCallback(() => {
-    // TODO: Navigate to the user profile or account page when available.
-    console.log("Profile button pressed");
-  }, []);
+    router.push("/profile");
+  }, [router]);
 
   const handleSearchPress = useCallback(() => {
     setIsSearchOpen(true);
@@ -59,8 +60,13 @@ export default function AppHeader({ colorScheme }: AppHeaderProps) {
   }, []);
 
   const handleSearchSubmit = useCallback(() => {
-    console.log("Search submitted:", searchQuery.trim());
-  }, [searchQuery]);
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
+      setIsSearchOpen(false);
+      setSearchQuery("");
+    }
+  }, [searchQuery, router]);
 
   const trailingAction = useMemo(() => {
     if (!isAuthenticated) {
@@ -81,7 +87,7 @@ export default function AppHeader({ colorScheme }: AppHeaderProps) {
       <Pressable
         accessibilityRole="button"
         onPress={handleProfilePress}
-        className="overflow-hidden rounded-full border border-border dark:border-border-dark"
+        className="overflow-hidden rounded-full"
         style={{ width: 36, height: 36 }}
       >
         <AvatarFallback user={user} color={palette.text} />
@@ -203,21 +209,40 @@ type AvatarFallbackProps = {
   color: string;
 };
 
-function AvatarFallback({ user, color }: AvatarFallbackProps) {
-  if (user?.avatarUrl) {
+function AvatarFallback({
+  user,
+  color,
+}: {
+  user: AuthUser | null;
+  color: string;
+}) {
+  if (user?.avatar && !user.avatar.endsWith("d-avatar.jpg")) {
     return (
       <Image
-        source={{ uri: user.avatarUrl }}
-        style={{ width: "100%", height: "100%" }}
-        accessibilityRole="image"
-        accessibilityLabel={user.name}
+        className="h-full w-full"
+        source={{ uri: user.avatar }}
+        alt={user.username}
+        accessibilityLabel={user.username}
       />
     );
   }
 
+  const initial = (user?.username || "U").charAt(0).toUpperCase();
+
   return (
-    <View className="flex-1 items-center justify-center bg-surface-muted dark:bg-surface-muted-dark">
-      <FontAwesome name="user" size={18} color={color} />
+    <View className="h-full w-full items-center justify-center">
+      <LinearGradient
+        colors={["#3b82f6", "#8b5cf6"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ borderRadius: 18, width: "100%", height: "100%" }}
+      >
+        <View className="flex-1 items-center justify-center">
+          <Text style={{ color }} className="text-sm font-bold">
+            {initial}
+          </Text>
+        </View>
+      </LinearGradient>
     </View>
   );
 }

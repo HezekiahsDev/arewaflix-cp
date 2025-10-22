@@ -2,7 +2,7 @@ import {
   CategoryChips,
   COMPACT_CARD_DIMENSIONS,
   EmptyState,
-  FeaturedHero,
+  FeaturedVideoCard,
   SectionHeader,
   ShortsRail,
   VideoRail,
@@ -76,8 +76,8 @@ export default function HomeScreen() {
       setShortVideos(shorts);
       setError(null);
 
-      // Log featured videos for external video detection analysis
-      console.log("[HomeScreen] Loaded featured videos:", defaultVideos.length);
+      // // Log featured videos for external video detection analysis
+      // console.log("[HomeScreen] Loaded featured videos:", defaultVideos.length);
       defaultVideos.forEach((video, index) => {
         const media = resolveVideoMedia(video);
         console.log(`[HomeScreen] Featured Video ${index + 1}:`, {
@@ -112,6 +112,16 @@ export default function HomeScreen() {
   const onRefresh = useCallback(() => {
     loadContent(true);
   }, [loadContent]);
+
+  const featuredVideo = useMemo(() => {
+    if (featuredVideos.length > 0) {
+      return featuredVideos[0];
+    }
+    if (trendingVideos.length > 0) {
+      return trendingVideos[0];
+    }
+    return null;
+  }, [featuredVideos, trendingVideos]);
 
   const hasData =
     featuredVideos.length +
@@ -152,8 +162,6 @@ export default function HomeScreen() {
     );
   }
 
-  const heroItems = featuredVideos.slice(0, 5);
-
   return (
     <ScrollView
       className="flex-1 bg-background dark:bg-background-dark"
@@ -168,7 +176,7 @@ export default function HomeScreen() {
         />
       }
     >
-      {heroItems.length ? <FeaturedHero items={heroItems} /> : null}
+      {featuredVideo ? <FeaturedVideoCard video={featuredVideo} /> : null}
 
       <View className="px-4 pt-10 pb-6">
         <SectionHeader title="Shorts" />

@@ -6,11 +6,14 @@ import {
   getAuthorLabel,
   getDurationLabel,
 } from "@/lib/videos/formatters";
+import { resolveVideoMedia } from "@/lib/videos/media";
+import { useRouter } from "expo-router";
 import React from "react";
 import {
   Dimensions,
   FlatList,
   Image,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -202,9 +205,45 @@ function VideoCard({
   const authorLabel = getAuthorLabel(video);
   const subtitle = buildVideoSubtitle(video);
   const isCompact = dimensions.height <= 200;
+  const router = useRouter();
+
+  const handlePress = () => {
+    try {
+      const media = resolveVideoMedia(video);
+
+      if (media.kind === "direct") {
+        router.push({
+          pathname: "/player",
+          params: {
+            uri: media.uri,
+            title: video.title,
+            poster: video.imageUrl,
+            videoId: video.id,
+          },
+        });
+        return;
+      }
+
+      if (media.kind === "external") {
+        Linking.openURL(media.watchUrl).catch((err) => {
+          console.error("Failed to open external URL:", err);
+        });
+        return;
+      }
+
+      if (video.videoLocation) {
+        void Linking.openURL(video.videoLocation).catch((err) =>
+          console.error("Failed to open videoLocation:", err)
+        );
+      }
+    } catch (err) {
+      console.error("Error handling video press:", err);
+    }
+  };
 
   return (
     <Pressable
+      onPress={handlePress}
       className="overflow-hidden rounded-2xl bg-card shadow-sm dark:bg-card-dark"
       style={{
         width: "100%",

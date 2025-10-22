@@ -1,9 +1,6 @@
 export { SectionHeader } from "./SectionHeader";
 export type { SectionHeaderProps } from "./SectionHeader";
 
-export { FeaturedHero } from "./FeaturedHero";
-export type { FeaturedHeroProps } from "./FeaturedHero";
-
 export { ShortsRail } from "./ShortsRail";
 export type { ShortsRailProps } from "./ShortsRail";
 
@@ -20,3 +17,6 @@ export type { CategoryChipsProps } from "./CategoryChips";
 
 export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps } from "./EmptyState";
+
+export { FeaturedVideoCard } from "./FeaturedVideoCard";
+export type { FeaturedVideoCardProps } from "./FeaturedVideoCard";

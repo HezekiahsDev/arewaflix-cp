@@ -98,7 +98,7 @@ export default function TrendingScreen() {
         Trending
       </Text>
       <Text className="mt-2 text-base text-muted dark:text-muted-dark">
-        The hottest stories on Arewaflix this week.
+        The hottest videos on Arewaflix this week.
       </Text>
       <FlatList
         data={videos}

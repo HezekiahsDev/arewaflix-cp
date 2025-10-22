@@ -142,6 +142,7 @@ function RootLayoutNav() {
                   headerShown: false,
                 }}
               />
+              <Stack.Screen name="see-all" options={{ headerShown: false }} />
             </Stack>
           </View>
         </SafeAreaView>

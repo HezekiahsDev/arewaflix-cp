@@ -7,10 +7,17 @@ import {
   getVideosErrorMessage,
   Video,
 } from "@/lib/api/videos";
-import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import {
+  buildVideoSubtitle,
+  getAuthorLabel,
+  getDurationLabel,
+} from "@/lib/videos/formatters";
+import { resolveVideoMedia } from "@/lib/videos/media";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
   Image,
   Linking,
@@ -18,20 +25,14 @@ import {
   RefreshControl,
   Text,
   View,
-  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  buildVideoSubtitle,
-  getAuthorLabel,
-  getDurationLabel,
-} from "@/lib/videos/formatters";
-import { resolveVideoMedia } from "@/lib/videos/media";
 
 const screenWidth = Dimensions.get("window").width;
 const CARD_MARGIN = 16;
 const NUM_COLUMNS = 2;
-const CARD_WIDTH = (screenWidth - CARD_MARGIN * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
+const CARD_WIDTH =
+  (screenWidth - CARD_MARGIN * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 const CARD_HEIGHT = 260;
 const THUMBNAIL_HEIGHT = 160;
 

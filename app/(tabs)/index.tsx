@@ -14,6 +14,7 @@ import {
   getVideosErrorMessage,
   Video,
 } from "@/lib/api/videos";
+import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
@@ -37,6 +38,7 @@ const categories = [
 ];
 
 export default function HomeScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottomPadding = useMemo(
     () => Math.max(96, insets.bottom + 56),
@@ -96,6 +98,13 @@ export default function HomeScreen() {
   const onRefresh = useCallback(() => {
     loadContent(true);
   }, [loadContent]);
+
+  const handleSeeAll = useCallback(
+    (section: "trending" | "top" | "explore" | "shorts") => {
+      router.push(`/see-all/${section}`);
+    },
+    [router]
+  );
 
   const featuredVideo = useMemo(() => {
     if (featuredVideos.length > 0) {
@@ -165,7 +174,11 @@ export default function HomeScreen() {
         )} */}
 
         <View className="mt-12">
-          <SectionHeader title="Trending" ctaLabel="See all" />
+          <SectionHeader
+            title="Trending"
+            ctaLabel="See all"
+            onPress={() => handleSeeAll("trending")}
+          />
           {trendingVideos.length ? (
             <VideoRail
               videos={trendingVideos}
@@ -184,7 +197,11 @@ export default function HomeScreen() {
         </View> */}
 
         <View className="mt-12">
-          <SectionHeader title="Top videos" ctaLabel="See all" />
+          <SectionHeader
+            title="Top videos"
+            ctaLabel="See all"
+            onPress={() => handleSeeAll("top")}
+          />
           {topVideos.length ? (
             <VideoRail videos={topVideos} />
           ) : (
@@ -193,7 +210,11 @@ export default function HomeScreen() {
         </View>
 
         <View className="mt-12">
-          <SectionHeader title="Explore" ctaLabel="See all" />
+          <SectionHeader
+            title="Explore"
+            ctaLabel="See all"
+            onPress={() => handleSeeAll("explore")}
+          />
           {exploreVideos.length ? (
             <VideoRail videos={exploreVideos} />
           ) : (

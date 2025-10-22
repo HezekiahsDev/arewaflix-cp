@@ -319,12 +319,6 @@ export async function trackVideoView(
     ...(userId ? { user_id: userId } : {}),
   };
 
-  console.log("[ViewTracking] Attempting to call endpoint:", {
-    method: "POST",
-    url,
-    body,
-  });
-
   const response = await fetch(url, {
     method: "POST",
     headers: {

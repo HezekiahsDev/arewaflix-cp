@@ -7,6 +7,7 @@ import {
   ShortsRail,
   VideoRail,
 } from "@/components/ui/screens/home";
+import { HomeScreenSkeleton } from "@/components/ui/SkeletonLoader";
 import {
   fetchFeaturedVideos,
   fetchFilteredVideos,
@@ -14,10 +15,8 @@ import {
   getVideosErrorMessage,
   Video,
 } from "@/lib/api/videos";
-import { resolveVideoMedia } from "@/lib/videos/media";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -75,28 +74,6 @@ export default function HomeScreen() {
       setTopVideos(topRatedVideos);
       setShortVideos(shorts);
       setError(null);
-
-      // // Log featured videos for external video detection analysis
-      // console.log("[HomeScreen] Loaded featured videos:", defaultVideos.length);
-      defaultVideos.forEach((video, index) => {
-        const media = resolveVideoMedia(video);
-        console.log(`[HomeScreen] Featured Video ${index + 1}:`, {
-          id: video.id,
-          title: video.title,
-          videoLocation: video.videoLocation,
-          videoId: video.videoId,
-          hasVideoId: !!video.videoId,
-          hasVideoLocation: !!video.videoLocation,
-          isExternalCandidate: !!video.videoId && !video.videoLocation,
-          resolvedMediaType: media.kind,
-          ...(media.kind === "external"
-            ? {
-                externalVideoId: media.videoId,
-                externalWatchUrl: media.watchUrl,
-              }
-            : {}),
-        });
-      });
     } catch (err) {
       setError(getVideosErrorMessage(err));
     } finally {
@@ -131,14 +108,7 @@ export default function HomeScreen() {
     0;
 
   if (loading && !hasData) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background dark:bg-background-dark">
-        <ActivityIndicator size="large" color="#38bdf8" />
-        <Text className="mt-4 text-base text-muted dark:text-muted-dark">
-          Loading videos…
-        </Text>
-      </View>
-    );
+    return <HomeScreenSkeleton />;
   }
 
   if (error && !hasData) {

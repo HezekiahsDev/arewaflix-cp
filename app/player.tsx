@@ -165,7 +165,6 @@ function resolveAvatarUri(avatar?: string): string | undefined {
 
   // If already an absolute URL, return as-is
   if (isHttpUrl(trimmed)) {
-    console.log("[AvatarResolution] Using absolute URL:", trimmed);
     return trimmed;
   }
 
@@ -176,19 +175,11 @@ function resolveAvatarUri(avatar?: string): string | undefined {
   // Check if this looks like a CDN path (contains "upload/photos")
   if (sanitized.includes("upload/photos")) {
     const resolvedUrl = `${cdnBase}${encodeURI(sanitized)}`;
-    console.log("[AvatarResolution] Resolved to CDN:", {
-      original: avatar,
-      resolved: resolvedUrl,
-    });
     return resolvedUrl;
   }
 
   // Fallback to API base URL for other paths
   const resolvedUrl = `${API_BASE_URL}/${sanitized}`;
-  console.log("[AvatarResolution] Resolved to API base:", {
-    original: avatar,
-    resolved: resolvedUrl,
-  });
   return resolvedUrl;
 }
 

@@ -10,11 +10,9 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   Linking,
   Pressable,
-  RefreshControl,
   Text,
   View,
 } from "react-native";
@@ -74,25 +72,8 @@ function resolveShortMedia(video: VideoModel): {
 } {
   const candidates = collectMediaCandidates(video);
 
-  console.log(
-    `[Shorts] Video ${video.id} (${video.title}) media candidates:`,
-    candidates
-  );
-  console.log(
-    `[Shorts] Video ${video.id} has videoLocation:`,
-    video.videoLocation
-  );
-
   const media = resolveVideoMedia(video);
   const short = toShortMedia(media);
-
-  if (media.kind === "direct") {
-    console.log(
-      `[Shorts] Video ${video.id} resolved as direct video: ${media.uri}`
-    );
-  } else {
-    console.log(`[Shorts] Video ${video.id} has no playable media`);
-  }
 
   return { media, short };
 }
@@ -143,7 +124,7 @@ function ShortPlayerCard({
 
     if (isActive && !hasError) {
       player.playAsync().catch((error) => {
-        console.warn("[ShortPlayerCard] play failed", error);
+        // play failed
       });
     } else {
       player.pauseAsync().catch(() => {
@@ -162,7 +143,6 @@ function ShortPlayerCard({
   }, []);
 
   const handleError = useCallback((error: string) => {
-    console.error("[ShortPlayerCard] playback error", error);
     setHasError("Playback error");
   }, []);
 
@@ -171,7 +151,7 @@ function ShortPlayerCard({
   const handleExternalVideoPress = useCallback(() => {
     if (item.source.origin === "external") {
       Linking.openURL(item.source.watchUrl).catch((err) => {
-        console.error("Failed to open external URL:", err);
+        // Failed to open external URL
       });
     }
   }, [item.source]);
@@ -422,18 +402,11 @@ export default function ShortsScreen() {
 
       for (const video of videos) {
         if (signal?.aborted) break;
-        console.log(`[Shorts] Processing video ${video.id}: "${video.title}"`);
         const source = await resolvePlayableSource(video);
         if (signal?.aborted) break;
         if (source) {
-          console.log(
-            source.origin === "external"
-              ? `[Shorts] ✓ Video ${video.id} resolved to ${source.origin}: ${source.watchUrl}`
-              : `[Shorts] ✓ Video ${video.id} resolved to ${source.origin}: ${source.uri?.substring(0, 100)}...`
-          );
           playable.push({ video, source });
         } else {
-          console.log(`[Shorts] ✗ Video ${video.id} could not be resolved`);
           unsupported += 1;
         }
       }
@@ -462,16 +435,6 @@ export default function ShortsScreen() {
           signal: controller.signal,
         });
 
-        console.log(
-          "[Shorts] Fetched videos from backend:",
-          videos.map((v) => ({
-            id: v.id,
-            title: v.title,
-            videoLocation: v.videoLocation,
-            rawKeys: Object.keys(v.raw || {}),
-          }))
-        );
-
         const { playable, unsupported } = await hydrateShorts(
           videos,
           controller.signal
@@ -498,7 +461,6 @@ export default function ShortsScreen() {
         if (controller.signal.aborted) {
           return;
         }
-        console.error("[ShortsScreen] Failed to load shorts", err);
         setError(getVideosErrorMessage(err));
       } finally {
         if (!controller.signal.aborted) {
@@ -534,104 +496,18 @@ export default function ShortsScreen() {
     [activeIndex, insets.bottom, insets.top, isFocused]
   );
 
-  if (loading && !refreshing && shorts.length === 0) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#000",
-        }}
-      >
-        <ActivityIndicator size="large" color="#ffffff" />
-        <Text
-          style={{
-            color: "rgba(255,255,255,0.75)",
-            marginTop: 12,
-            fontSize: 14,
-          }}
-        >
-          Loading shorts…
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={{ flex: 1, backgroundColor: "#000" }}>
-      <FlatList
-        data={shorts}
-        keyExtractor={(item) => item.video.id}
-        renderItem={renderItem}
-        pagingEnabled
-        showsVerticalScrollIndicator={false}
-        snapToAlignment="start"
-        decelerationRate="fast"
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        initialNumToRender={3}
-        windowSize={5}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#ffffff"
-            colors={["#ffffff"]}
-          />
-        }
-        ListEmptyComponent={
-          !loading ? (
-            <View
-              style={{
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-                paddingHorizontal: 32,
-                backgroundColor: "#000",
-              }}
-            >
-              <Text
-                style={{
-                  color: "rgba(255,255,255,0.9)",
-                  fontSize: 16,
-                  fontWeight: "600",
-                  textAlign: "center",
-                }}
-              >
-                {error ?? "No shorts available yet."}
-              </Text>
-            </View>
-          ) : null
-        }
-      />
-
-      {unsupportedCount > 0 ? (
-        <View
-          style={{
-            position: "absolute",
-            bottom: insets.bottom + 12,
-            left: 16,
-            right: 16,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            borderRadius: 14,
-            backgroundColor: "rgba(0,0,0,0.55)",
-          }}
-        >
-          <Text
-            style={{
-              color: "rgba(255,255,255,0.85)",
-              fontSize: 13,
-              textAlign: "center",
-            }}
-          >
-            {unsupportedCount} short
-            {unsupportedCount === 1 ? "" : "s"} are still processing and
-            temporarily unavailable.
-          </Text>
-        </View>
-      ) : null}
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#000",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text style={{ color: "#fff", fontSize: 24, fontWeight: "bold" }}>
+        Shorts Coming Soon
+      </Text>
     </View>
   );
 }

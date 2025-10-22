@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Linking,
   Pressable,
   RefreshControl,
   Text,
@@ -20,9 +21,12 @@ import {
   getAuthorLabel,
   getDurationLabel,
 } from "@/lib/videos/formatters";
+import { resolveVideoMedia } from "@/lib/videos/media";
+import { useRouter } from "expo-router";
 
 export default function TrendingScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const bottomPadding = useMemo(
     () => Math.max(96, insets.bottom + 56),
     [insets.bottom]
@@ -43,11 +47,16 @@ export default function TrendingScreen() {
       const data = await fetchFilteredVideos("popular", {
         limit: 20,
       });
+      // Validate that data is an array
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid response format");
+      }
       setVideos(data);
       setError(null);
     } catch (error) {
-      console.error("[TrendingScreen] Failed to load videos", error);
-      setError(getVideosErrorMessage(error));
+      const errorMessage =
+        getVideosErrorMessage(error) || "Failed to load videos";
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -55,10 +64,63 @@ export default function TrendingScreen() {
   }, []);
 
   useEffect(() => {
-    loadVideos(false);
+    try {
+      loadVideos(false);
+    } catch (error) {
+      // This should not happen since loadVideos has internal error handling,
+      // but adding as a safety net
+      setError("Failed to initialize video loading");
+      setLoading(false);
+    }
   }, [loadVideos]);
 
-  const onRefresh = useCallback(() => loadVideos(true), [loadVideos]);
+  const onRefresh = useCallback(() => {
+    try {
+      loadVideos(true);
+    } catch (error) {
+      // This should not happen since loadVideos has internal error handling,
+      // but adding as a safety net
+      setError("Failed to refresh videos");
+      setRefreshing(false);
+    }
+  }, [loadVideos]);
+
+  const handleVideoPress = useCallback(
+    (video: Video) => {
+      try {
+        const media = resolveVideoMedia(video);
+
+        if (media.kind === "direct") {
+          router.push({
+            pathname: "/player",
+            params: {
+              uri: media.uri,
+              title: video.title,
+              poster: video.imageUrl,
+              videoId: video.id,
+            },
+          });
+          return;
+        }
+
+        if (media.kind === "external") {
+          Linking.openURL(media.watchUrl).catch((err) => {
+            // Failed to open external URL
+          });
+          return;
+        }
+
+        if (video.videoLocation) {
+          Linking.openURL(video.videoLocation).catch((err) => {
+            // Failed to open videoLocation
+          });
+        }
+      } catch (err) {
+        // Error handling video press
+      }
+    },
+    [router]
+  );
 
   if (loading && videos.length === 0) {
     return (
@@ -81,7 +143,13 @@ export default function TrendingScreen() {
           {error}
         </Text>
         <Pressable
-          onPress={() => loadVideos(false)}
+          onPress={() => {
+            try {
+              loadVideos(false);
+            } catch (error) {
+              setError("Failed to retry loading videos");
+            }
+          }}
           className="mt-6 rounded-full bg-primary px-5 py-2 dark:bg-primary-dark"
         >
           <Text className="text-sm font-semibold uppercase tracking-wide text-primary-foreground dark:text-primary-foreground-dark">
@@ -124,16 +192,46 @@ export default function TrendingScreen() {
           </View>
         )}
         renderItem={({ item, index }) => {
-          const durationLabel = getDurationLabel(item);
-          const authorLabel = getAuthorLabel(item);
-          const subtitle = buildVideoSubtitle(item);
+          if (!item || typeof item !== "object") {
+            return null;
+          }
+
+          let durationLabel, authorLabel, subtitle;
+          try {
+            durationLabel = getDurationLabel(item);
+            authorLabel = getAuthorLabel(item);
+            subtitle = buildVideoSubtitle(item);
+          } catch (err) {
+            // Silently handle formatting errors
+            durationLabel = null;
+            authorLabel = null;
+            subtitle = null;
+          }
+
+          const imageUri =
+            item.imageUrl && typeof item.imageUrl === "string"
+              ? item.imageUrl
+              : null;
+          const title =
+            item.title && typeof item.title === "string"
+              ? item.title
+              : "Untitled Video";
 
           return (
             <Pressable
+              onPress={() => handleVideoPress(item)}
               className="overflow-hidden rounded-3xl bg-card shadow-sm dark:bg-card-dark"
               style={{ marginBottom: index === videos.length - 1 ? 0 : 20 }}
             >
-              <Image source={{ uri: item.imageUrl }} className="h-56 w-full" />
+              {imageUri ? (
+                <Image source={{ uri: imageUri }} className="h-56 w-full" />
+              ) : (
+                <View className="h-56 w-full bg-surface-muted dark:bg-surface-muted-dark items-center justify-center">
+                  <Text className="text-muted dark:text-muted-dark">
+                    No Image
+                  </Text>
+                </View>
+              )}
               {durationLabel ? (
                 <View className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1">
                   <Text className="text-xs font-semibold uppercase tracking-wide text-white">
@@ -146,7 +244,7 @@ export default function TrendingScreen() {
                   className="text-xl font-semibold text-text dark:text-text-dark"
                   numberOfLines={2}
                 >
-                  {item.title}
+                  {title}
                 </Text>
                 {authorLabel ? (
                   <Text className="text-xs uppercase tracking-wide text-muted dark:text-muted-dark">
@@ -172,7 +270,13 @@ export default function TrendingScreen() {
             {error}
           </Text>
           <Pressable
-            onPress={() => loadVideos(false)}
+            onPress={() => {
+              try {
+                loadVideos(false);
+              } catch (error) {
+                setError("Failed to retry loading videos");
+              }
+            }}
             className="mt-3 self-start rounded-full bg-red-500 px-4 py-2 dark:bg-red-400"
           >
             <Text className="text-xs font-semibold uppercase tracking-wide text-white">

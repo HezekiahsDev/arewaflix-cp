@@ -5,7 +5,6 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -30,6 +29,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const scheme = colorScheme ?? "light";
   const logoSource = useMemo(() => {
@@ -39,51 +40,39 @@ export default function LoginScreen() {
   }, [scheme]);
 
   const onSubmit = useCallback(async () => {
-    console.log("🚀 Login onSubmit called");
-    console.log("Username:", username);
-    console.log("Password length:", password.length);
+    setError(null);
 
     if (!username || !password) {
-      console.log("❌ Validation failed: missing fields");
-      Alert.alert("Missing fields", "Please enter both username and password.");
+      setError("Please enter both username and password.");
       return;
     }
 
     setLoading(true);
     try {
-      console.log("📡 Calling login API...");
       const response = await login({
         username,
         password,
       });
 
-      console.log("📡 Login API response received:", response);
-
       if (response.success) {
-        console.log("✅ Login successful, signing in user");
         signIn(response.data.user, response.data.token);
         router.replace("/");
       } else {
-        console.log("❌ Login failed with message:", response.message);
-        Alert.alert("Login failed", response.message);
+        setError(response.message || "Login failed. Please try again.");
       }
     } catch (err) {
-      console.error("❌ Login error caught:", err);
-      const errorMessage =
+      setError(
         err instanceof Error
           ? err.message
-          : "Please check your credentials and try again.";
-      Alert.alert("Login failed", errorMessage);
+          : "An error occurred. Please check your credentials and try again."
+      );
     } finally {
       setLoading(false);
     }
   }, [username, password, signIn, router]);
 
   const handleSocialLogin = useCallback((provider: string) => {
-    Alert.alert(
-      "Social Login",
-      `${provider} login would be implemented here with the real API.`
-    );
+    // Social login implementation
   }, []);
 
   const navigateToSignup = useCallback(() => {
@@ -141,6 +130,15 @@ export default function LoginScreen() {
                     Welcome back!
                   </Text>
 
+                  {/* Error Message */}
+                  {error && (
+                    <View className="mb-5 rounded-lg bg-red-50 p-4 dark:bg-red-900/20">
+                      <Text className="text-sm text-red-600 dark:text-red-400">
+                        {error}
+                      </Text>
+                    </View>
+                  )}
+
                   {/* Username Field */}
                   <View className="mb-5">
                     <TextInput
@@ -159,14 +157,26 @@ export default function LoginScreen() {
 
                   {/* Password Field */}
                   <View className="mb-5">
-                    <TextInput
-                      value={password}
-                      onChangeText={setPassword}
-                      placeholder="Password"
-                      placeholderTextColor="#9ca3af"
-                      secureTextEntry
-                      className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
-                    />
+                    <View className="relative">
+                      <TextInput
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder="Password"
+                        placeholderTextColor="#9ca3af"
+                        secureTextEntry={!showPassword}
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
+                      />
+                      <Pressable
+                        onPress={() => setShowPassword(!showPassword)}
+                        className="absolute right-0 top-0 h-full items-center justify-center px-4"
+                      >
+                        <FontAwesome
+                          name={showPassword ? "eye-slash" : "eye"}
+                          size={20}
+                          color="#9ca3af"
+                        />
+                      </Pressable>
+                    </View>
                     <Text className="mt-2 text-sm font-medium text-muted dark:text-muted-dark">
                       Password
                     </Text>

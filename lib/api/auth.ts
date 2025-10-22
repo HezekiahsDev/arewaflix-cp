@@ -10,7 +10,7 @@ const API_BASE_URL = getSanitizedBaseUrl(
     : undefined
 );
 
-console.log("🌐 API_BASE_URL:", API_BASE_URL);
+//console.log("🌐 API_BASE_URL:", API_BASE_URL);
 
 // Helper function to get more specific error messages
 const getNetworkErrorMessage = (error: any): string => {
@@ -140,9 +140,9 @@ export interface AuthResponse {
 
 export async function signup(data: SignupRequest): Promise<AuthResponse> {
   const url = `${API_BASE_URL}/api/v1/users/`;
-  console.log("🔐 Signup Request:");
-  console.log("URL:", url);
-  console.log("Data:", data);
+  //console.log("🔐 Signup Request:");
+  //console.log("URL:", url);
+  //console.log("Data:", data);
 
   try {
     const response = await fetch(url, {
@@ -153,19 +153,42 @@ export async function signup(data: SignupRequest): Promise<AuthResponse> {
       body: JSON.stringify(data),
     });
 
-    console.log("Response Status:", response.status);
-    console.log("Response Status Text:", response.statusText);
+    //console.log("Response Status:", response.status);
+    //console.log("Response Status Text:", response.statusText);
 
-    if (!response.ok) {
+    let result: any;
+    try {
+      result = await response.json();
+    } catch {
+      // If not JSON, treat as text error
       const errorText = await response.text();
-      console.error("❌ Signup Error Response:", errorText);
       throw new Error(
-        `Signup failed: ${response.status} ${response.statusText}`
+        errorText || `Signup failed: ${response.status} ${response.statusText}`
       );
     }
 
-    const result = await response.json();
-    console.log("✅ Signup Success Response:", result);
+    if (!response.ok) {
+      // Return the error response if it's structured
+      if (result && typeof result === "object" && "success" in result) {
+        // Normalize error message from different formats
+        const errorMessage =
+          result.error?.message ||
+          result.message ||
+          `Signup failed: ${response.status} ${response.statusText}`;
+        return {
+          success: false,
+          message: errorMessage,
+          data: { user: {} as AuthUser, token: "" },
+        } as AuthResponse;
+      }
+      throw new Error(
+        result?.error?.message ||
+          result?.message ||
+          `Signup failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    //console.log("✅ Signup Success Response:", result);
     return result;
   } catch (error) {
     console.error("❌ Signup Network Error:", error);
@@ -176,9 +199,9 @@ export async function signup(data: SignupRequest): Promise<AuthResponse> {
 
 export async function login(data: LoginRequest): Promise<AuthResponse> {
   const url = `${API_BASE_URL}/api/v1/auth/login`;
-  console.log("🔐 Login Request:");
-  console.log("URL:", url);
-  console.log("Data:", data);
+  //console.log("🔐 Login Request:");
+  //console.log("URL:", url);
+  //console.log("Data:", data);
 
   try {
     const response = await fetch(url, {
@@ -189,19 +212,42 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
       body: JSON.stringify(data),
     });
 
-    console.log("Response Status:", response.status);
-    console.log("Response Status Text:", response.statusText);
+    //console.log("Response Status:", response.status);
+    //console.log("Response Status Text:", response.statusText);
 
-    if (!response.ok) {
+    let result: any;
+    try {
+      result = await response.json();
+    } catch {
+      // If not JSON, treat as text error
       const errorText = await response.text();
-      console.error("❌ Login Error Response:", errorText);
       throw new Error(
-        `Login failed: ${response.status} ${response.statusText}`
+        errorText || `Login failed: ${response.status} ${response.statusText}`
       );
     }
 
-    const result = await response.json();
-    console.log("✅ Login Success Response:", result);
+    if (!response.ok) {
+      // Return the error response if it's structured
+      if (result && typeof result === "object" && "success" in result) {
+        // Normalize error message from different formats
+        const errorMessage =
+          result.error?.message ||
+          result.message ||
+          `Login failed: ${response.status} ${response.statusText}`;
+        return {
+          success: false,
+          message: errorMessage,
+          data: { user: {} as AuthUser, token: "" },
+        } as AuthResponse;
+      }
+      throw new Error(
+        result?.error?.message ||
+          result?.message ||
+          `Login failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    //console.log("✅ Login Success Response:", result);
     return result;
   } catch (error) {
     console.error("❌ Login Network Error:", error);
@@ -218,8 +264,8 @@ export interface ProfileResponse {
 
 export async function getProfile(token: string): Promise<ProfileResponse> {
   const url = `${API_BASE_URL}/api/v1/users/me`;
-  console.log("🔐 Get Profile Request:");
-  console.log("URL:", url);
+  //console.log("🔐 Get Profile Request:");
+  //console.log("URL:", url);
 
   try {
     const response = await fetch(url, {
@@ -230,19 +276,43 @@ export async function getProfile(token: string): Promise<ProfileResponse> {
       },
     });
 
-    console.log("Response Status:", response.status);
-    console.log("Response Status Text:", response.statusText);
+    //console.log("Response Status:", response.status);
+    //console.log("Response Status Text:", response.statusText);
 
-    if (!response.ok) {
+    let result: any;
+    try {
+      result = await response.json();
+    } catch {
+      // If not JSON, treat as text error
       const errorText = await response.text();
-      console.error("❌ Get Profile Error Response:", errorText);
       throw new Error(
-        `Get Profile failed: ${response.status} ${response.statusText}`
+        errorText ||
+          `Get Profile failed: ${response.status} ${response.statusText}`
       );
     }
 
-    const result = await response.json();
-    console.log("✅ Get Profile Success Response:", result);
+    if (!response.ok) {
+      // Return the error response if it's structured
+      if (result && typeof result === "object" && "success" in result) {
+        // Normalize error message from different formats
+        const errorMessage =
+          result.error?.message ||
+          result.message ||
+          `Get Profile failed: ${response.status} ${response.statusText}`;
+        return {
+          success: false,
+          message: errorMessage,
+          data: {} as AuthUser,
+        } as ProfileResponse;
+      }
+      throw new Error(
+        result?.error?.message ||
+          result?.message ||
+          `Get Profile failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    //console.log("✅ Get Profile Success Response:", result);
     return result;
   } catch (error) {
     console.error("❌ Get Profile Network Error:", error);

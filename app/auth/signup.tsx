@@ -5,7 +5,6 @@ import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -33,6 +32,9 @@ export default function SignupScreen() {
   const [gender, setGender] = useState<"male" | "female" | "other" | "">("");
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const scheme = colorScheme ?? "light";
   const logoSource = useMemo(() => {
@@ -46,40 +48,30 @@ export default function SignupScreen() {
   };
 
   const onSubmit = useCallback(async () => {
-    console.log("🚀 Signup onSubmit called");
-    console.log("Username:", username);
-    console.log("Email:", email);
-    console.log("Password length:", password.length);
-    console.log("Gender:", gender);
+    setError(null);
 
     if (!username || !email || !password || !confirmPassword) {
-      console.log("❌ Validation failed: missing fields");
-      Alert.alert("Missing fields", "Please fill all required fields.");
+      setError("Please fill all required fields.");
       return;
     }
 
     if (!validateEmail(email)) {
-      console.log("❌ Validation failed: invalid email");
-      Alert.alert("Invalid email", "Please enter a valid email address.");
+      setError("Please enter a valid email address.");
       return;
     }
 
     if (password.length < 6) {
-      console.log("❌ Validation failed: weak password");
-      Alert.alert("Weak password", "Password should be at least 6 characters.");
+      setError("Password should be at least 6 characters.");
       return;
     }
 
     if (password !== confirmPassword) {
-      console.log("❌ Validation failed: password mismatch");
-      Alert.alert("Password mismatch", "Passwords do not match.");
+      setError("Passwords do not match.");
       return;
     }
 
     if (!consent) {
-      console.log("❌ Validation failed: consent not given");
-      Alert.alert(
-        "Consent required",
+      setError(
         "You must agree to the Terms of use & Privacy Policy to create an account."
       );
       return;
@@ -88,7 +80,6 @@ export default function SignupScreen() {
     setLoading(true);
 
     try {
-      console.log("📡 Calling signup API...");
       const response = await signup({
         username,
         email,
@@ -96,21 +87,18 @@ export default function SignupScreen() {
         gender,
       });
 
-      console.log("📡 Signup API response received:", response);
-
       if (response.success) {
-        console.log("✅ Signup successful, signing in user");
         signIn(response.data.user, response.data.token);
         router.replace("/");
       } else {
-        console.log("❌ Signup failed with message:", response.message);
-        Alert.alert("Signup failed", response.message);
+        setError(response.message || "Signup failed. Please try again.");
       }
     } catch (err) {
-      console.error("❌ Signup error caught:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "Please try again later.";
-      Alert.alert("Signup failed", errorMessage);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An error occurred. Please try again later."
+      );
     } finally {
       setLoading(false);
     }
@@ -172,6 +160,15 @@ export default function SignupScreen() {
                     Create an account
                   </Text>
 
+                  {/* Error Message */}
+                  {error && (
+                    <View className="mb-5 rounded-lg bg-red-50 p-4 dark:bg-red-900/20">
+                      <Text className="text-sm text-red-600 dark:text-red-400">
+                        {error}
+                      </Text>
+                    </View>
+                  )}
+
                   {/* Username */}
                   <View className="mb-4">
                     <TextInput
@@ -205,14 +202,26 @@ export default function SignupScreen() {
 
                   {/* Password */}
                   <View className="mb-4">
-                    <TextInput
-                      value={password}
-                      onChangeText={setPassword}
-                      placeholder="Password"
-                      placeholderTextColor="#9ca3af"
-                      secureTextEntry
-                      className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
-                    />
+                    <View className="relative">
+                      <TextInput
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder="Password"
+                        placeholderTextColor="#9ca3af"
+                        secureTextEntry={!showPassword}
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
+                      />
+                      <Pressable
+                        onPress={() => setShowPassword(!showPassword)}
+                        className="absolute right-0 top-0 h-full items-center justify-center px-4"
+                      >
+                        <FontAwesome
+                          name={showPassword ? "eye-slash" : "eye"}
+                          size={20}
+                          color="#9ca3af"
+                        />
+                      </Pressable>
+                    </View>
                     <Text className="mt-2 text-sm text-muted dark:text-muted-dark">
                       Password
                     </Text>
@@ -220,14 +229,28 @@ export default function SignupScreen() {
 
                   {/* Confirm Password */}
                   <View className="mb-4">
-                    <TextInput
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder="Confirm password"
-                      placeholderTextColor="#9ca3af"
-                      secureTextEntry
-                      className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
-                    />
+                    <View className="relative">
+                      <TextInput
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        placeholder="Confirm password"
+                        placeholderTextColor="#9ca3af"
+                        secureTextEntry={!showConfirmPassword}
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
+                      />
+                      <Pressable
+                        onPress={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        className="absolute right-0 top-0 h-full items-center justify-center px-4"
+                      >
+                        <FontAwesome
+                          name={showConfirmPassword ? "eye-slash" : "eye"}
+                          size={20}
+                          color="#9ca3af"
+                        />
+                      </Pressable>
+                    </View>
                     <Text className="mt-2 text-sm text-muted dark:text-muted-dark">
                       Confirm password
                     </Text>

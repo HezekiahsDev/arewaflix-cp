@@ -8,12 +8,13 @@ import { useFonts } from "expo-font";
 import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import "react-native-reanimated";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import "../global.css";
 
+import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 import AppHeader from "@/components/AppHeader";
 import Colors from "@/constants/Colors";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -37,6 +38,7 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     ...FontAwesome.font,
   });
+  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
@@ -51,6 +53,12 @@ export default function RootLayout() {
 
   if (!loaded) {
     return null;
+  }
+
+  if (showAnimatedSplash) {
+    return (
+      <AnimatedSplashScreen onFinish={() => setShowAnimatedSplash(false)} />
+    );
   }
 
   return (
@@ -73,6 +81,7 @@ function RootLayoutNav() {
     "/(tabs)",
     "/shorts",
     "/trending",
+    "/search",
     "/categories",
     "/player",
   ]);

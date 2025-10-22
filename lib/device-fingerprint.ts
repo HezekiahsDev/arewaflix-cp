@@ -21,7 +21,6 @@ export async function getDeviceFingerprint(): Promise<string> {
     // Check if we already have a stored fingerprint
     const stored = await AsyncStorage.getItem(FINGERPRINT_KEY);
     if (stored) {
-      console.log("[DeviceFingerprint] Using stored fingerprint:", stored);
       return stored;
     }
 
@@ -33,13 +32,6 @@ export async function getDeviceFingerprint(): Promise<string> {
     const randomSuffix = Math.random().toString(36).substring(2, 15);
 
     const fingerprint = `${platform}_${version}_${installationId}_${randomSuffix}`;
-
-    console.log("[DeviceFingerprint] Generated new fingerprint:", {
-      fingerprint,
-      installationId,
-      platform,
-      version,
-    });
 
     // Store it for future use
     await AsyncStorage.setItem(FINGERPRINT_KEY, fingerprint);

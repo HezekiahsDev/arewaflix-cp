@@ -13,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   Text,
@@ -96,6 +97,20 @@ export default function ProfileScreen() {
       fetchProfile();
     }
   }, [profile, fetchProfile]);
+
+  const handleSignOut = useCallback(() => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: signOut,
+      },
+    ]);
+  }, [signOut]);
 
   const bottomPadding = useMemo(
     () => Math.max(96, insets.bottom + 56),
@@ -212,7 +227,7 @@ export default function ProfileScreen() {
 
       <View className="absolute bottom-0 left-0 right-0 p-4">
         <Pressable
-          onPress={signOut}
+          onPress={handleSignOut}
           className="rounded-md px-4 py-3"
           android_ripple={{ color: "rgba(255,255,255,0.1)" }}
           style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}

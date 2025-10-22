@@ -142,6 +142,20 @@ export async function fetchShorts(
   return data.map((video) => normalizeVideo({ ...video, is_short: true }));
 }
 
+export async function fetchRandomVideos(
+  options: FetchVideosOptions = {}
+): Promise<Video[]> {
+  const { limit, page, signal, headers } = options;
+
+  const data = await request(
+    "/random",
+    { limit, page, approved: 1, privacy: 0 },
+    { signal, headers }
+  );
+
+  return data.map(normalizeVideo);
+}
+
 export type SearchVideosOptions = {
   q: string;
   limit?: number;

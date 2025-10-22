@@ -1,16 +1,15 @@
 import {
-  CategoryChips,
   COMPACT_CARD_DIMENSIONS,
   EmptyState,
   FeaturedVideoCard,
   SectionHeader,
-  ShortsRail,
   VideoRail,
 } from "@/components/ui/screens/home";
 import { HomeScreenSkeleton } from "@/components/ui/SkeletonLoader";
 import {
   fetchFeaturedVideos,
   fetchFilteredVideos,
+  fetchRandomVideos,
   fetchShorts,
   getVideosErrorMessage,
   Video,
@@ -47,6 +46,7 @@ export default function HomeScreen() {
   const [shortVideos, setShortVideos] = useState<Video[]>([]);
   const [trendingVideos, setTrendingVideos] = useState<Video[]>([]);
   const [topVideos, setTopVideos] = useState<Video[]>([]);
+  const [exploreVideos, setExploreVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,18 +61,25 @@ export default function HomeScreen() {
     try {
       const featuredPromise = fetchFeaturedVideos({ limit: 5 });
 
-      const [defaultVideos, popularVideos, topRatedVideos, shorts] =
-        await Promise.all([
-          featuredPromise,
-          fetchFilteredVideos("popular", { limit: 8 }),
-          fetchFilteredVideos("top_rated", { limit: 8 }),
-          fetchShorts({ limit: 15 }),
-        ]);
+      const [
+        defaultVideos,
+        popularVideos,
+        topRatedVideos,
+        shorts,
+        randomVideos,
+      ] = await Promise.all([
+        featuredPromise,
+        fetchFilteredVideos("popular", { limit: 8 }),
+        fetchFilteredVideos("top_rated", { limit: 8 }),
+        fetchShorts({ limit: 15 }),
+        fetchRandomVideos({ limit: 10, page: 1 }),
+      ]);
 
       setFeaturedVideos(defaultVideos);
       setTrendingVideos(popularVideos);
       setTopVideos(topRatedVideos);
       setShortVideos(shorts);
+      setExploreVideos(randomVideos);
       setError(null);
     } catch (err) {
       setError(getVideosErrorMessage(err));
@@ -104,7 +111,8 @@ export default function HomeScreen() {
     featuredVideos.length +
       trendingVideos.length +
       topVideos.length +
-      shortVideos.length >
+      shortVideos.length +
+      exploreVideos.length >
     0;
 
   if (loading && !hasData) {
@@ -148,13 +156,13 @@ export default function HomeScreen() {
     >
       {featuredVideo ? <FeaturedVideoCard video={featuredVideo} /> : null}
 
-      <View className="px-4 pt-10 pb-6">
-        <SectionHeader title="Shorts" />
+      <View className="px-4 pt-0 pb-6">
+        {/* <SectionHeader title="Shorts" />
         {shortVideos.length ? (
           <ShortsRail items={shortVideos} />
         ) : (
           <EmptyState message="No shorts available right now." />
-        )}
+        )} */}
 
         <View className="mt-12">
           <SectionHeader title="Trending" ctaLabel="See all" />
@@ -170,10 +178,10 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <View className="mt-12">
+        {/* <View className="mt-12">
           <SectionHeader title="Categories" />
           <CategoryChips items={categories} />
-        </View>
+        </View> */}
 
         <View className="mt-12">
           <SectionHeader title="Top videos" ctaLabel="See all" />
@@ -181,6 +189,15 @@ export default function HomeScreen() {
             <VideoRail videos={topVideos} />
           ) : (
             <EmptyState message="Top picks are being curated." />
+          )}
+        </View>
+
+        <View className="mt-12">
+          <SectionHeader title="Explore" ctaLabel="See all" />
+          {exploreVideos.length ? (
+            <VideoRail videos={exploreVideos} />
+          ) : (
+            <EmptyState message="Explore videos are being loaded." />
           )}
         </View>
 

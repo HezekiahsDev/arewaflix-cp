@@ -13,9 +13,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "updates": {
       "fallbackToCacheTimeout": 0
     },
@@ -46,7 +44,8 @@
             }
           }
         },
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -65,6 +64,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-build-properties",
         {

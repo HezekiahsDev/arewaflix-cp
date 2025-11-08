@@ -1,3 +1,4 @@
+import { registerForPushNotificationsAsync } from "@/lib/notifications";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {
   DarkTheme,
@@ -110,6 +111,21 @@ function RootLayoutNav() {
   useEffect(() => {
     setColorScheme(scheme);
   }, [scheme, setColorScheme]);
+
+  // Register for push notifications on app start (will prompt the user for permission)
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          console.log("Expo push token:", token);
+          // TODO: send the token to your backend so you can target this device
+        }
+      } catch (e) {
+        console.warn("Push registration failed:", e);
+      }
+    })();
+  }, []);
 
   const navigationTheme = useMemo(() => {
     const base = scheme === "dark" ? DarkTheme : DefaultTheme;

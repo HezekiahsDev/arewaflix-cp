@@ -3,6 +3,10 @@ import { Video, VIDEOS_API_BASE_URL } from "@/lib/api/videos";
 const AREWAFLIX_BASE_URL = "https://arewaflix.com";
 const AREWAFLIX_SUFFIX = "_1ff1rx1dDLBkD57.html";
 
+// Base URL for media files (video assets) stored in the S3/Backblaze bucket.
+// Keep this consistent with resolveImageUrl which uses the same bucket.
+const VIDEO_S3_BASE = "https://arewaflix.s3.us-east-005.backblazeb2.com";
+
 /**
  * Converts a video title to a URL slug format
  * Example: "Zafin Nema Season 1 Episode 12" -> "zafin-nema-season-1-episode-12"
@@ -162,7 +166,9 @@ export function resolveDirectVideoUrl(candidate: string): string | undefined {
   }
 
   const sanitized = trimmed.replace(/^\/+/, "");
-  return `${VIDEOS_API_BASE_URL}/${sanitized}`;
+  // Videos and media files are hosted on the S3/Backblaze bucket. Use the
+  // VIDEO_S3_BASE for constructing absolute URIs for relative media paths.
+  return `${VIDEO_S3_BASE}/${sanitized}`;
 }
 
 export function resolveVideoMedia(video: Video): VideoMedia {

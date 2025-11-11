@@ -4,7 +4,6 @@ import { login } from "@/lib/api/auth";
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import Constants from "expo-constants";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
@@ -201,11 +200,10 @@ export default function LoginScreen() {
                   {REVIEW_USER && REVIEW_PASS && (
                     <View className="mb-4">
                       <Pressable
-                            onPress: () =>
-                                WebBrowser.openBrowserAsync(
-                                  Constants.expoConfig?.extra?.forgotPasswordUrl ||
-                                    "https://arewaflix.io/forgot-password"
-                                ),
+                        onPress={() => {
+                          setUsername(REVIEW_USER);
+                          setPassword(REVIEW_PASS);
+                        }}
                         className="px-4 py-3 border border-gray-300 border-dashed rounded-lg bg-gray-50"
                         accessibilityLabel="Use reviewer credentials"
                       >
@@ -262,6 +260,32 @@ export default function LoginScreen() {
                     </Pressable>
                   </View>
 
+                  {/*
+                    Social login (disabled)
+                    The social sign-in buttons are not available yet. Keeping this
+                    placeholder commented out so reviewers don't see non-functional UI.
+
+                    To enable later, remove the surrounding comment block and
+                    implement the OAuth flows (Google, Facebook, Apple).
+
+                    Example placeholder UI (commented out):
+
+                    <View className="my-4">
+                      <Text className="text-sm text-center text-muted dark:text-muted-dark">Or continue with</Text>
+                      <View className="flex-row justify-center gap-3 mt-3">
+                        <Pressable className="px-4 py-3 bg-white border border-gray-300 rounded-lg" accessibilityLabel="Continue with Google">
+                          <FontAwesome name="google" size={20} color="#DB4437" />
+                        </Pressable>
+                        <Pressable className="px-4 py-3 bg-white border border-gray-300 rounded-lg" accessibilityLabel="Continue with Facebook">
+                          <FontAwesome name="facebook" size={20} color="#1877F2" />
+                        </Pressable>
+                        <Pressable className="px-4 py-3 bg-white border border-gray-300 rounded-lg" accessibilityLabel="Continue with Apple">
+                          <FontAwesome name="apple" size={20} color="#000" />
+                        </Pressable>
+                      </View>
+                    </View>
+                  */}
+
                   {/* Login Button */}
                   <Pressable
                     onPress={onSubmit}
@@ -278,11 +302,10 @@ export default function LoginScreen() {
                     <Text className="text-xs text-center text-muted dark:text-muted-dark">
                       By logging in, you agree to our{" "}
                       <Text
-                        className="font-semibold text-primary underline"
+                        className="font-semibold underline text-primary"
                         onPress={() =>
                           WebBrowser.openBrowserAsync(
-                            Constants.expoConfig?.extra?.termsUrl ||
-                              "https://arewaflix.io/terms"
+                            "https://arewaflix.io/terms"
                           )
                         }
                       >
@@ -290,11 +313,10 @@ export default function LoginScreen() {
                       </Text>{" "}
                       and{" "}
                       <Text
-                        className="font-semibold text-primary underline"
+                        className="font-semibold underline text-primary"
                         onPress={() =>
                           WebBrowser.openBrowserAsync(
-                            Constants.expoConfig?.extra?.privacyPolicyUrl ||
-                              "https://arewaflix.io/privacy"
+                            "https://arewaflix.io/privacy"
                           )
                         }
                       >

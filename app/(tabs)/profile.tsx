@@ -7,9 +7,12 @@ import {
   VideoIcon,
 } from "@/assets/icons/icon-pack-one";
 import { AuthUser, useAuth } from "@/context/AuthContext";
-import { getProfile } from "@/lib/api/auth";
+import { deleteAccount, getProfile } from "@/lib/api/auth";
+import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
+import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -111,6 +114,96 @@ export default function ProfileScreen() {
       },
     ]);
   }, [signOut]);
+
+  const handleDeleteAccount = useCallback(() => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account? This action cannot be undone.\n\nAll your data including:\n• Profile information\n• Watch history\n• Saved videos\n• Comments\n\nwill be permanently deleted.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            // Second confirmation
+            Alert.alert(
+              "Final Confirmation",
+              "This will permanently delete your account and all associated data. Are you absolutely sure?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Confirm Delete",
+                  style: "destructive",
+                  onPress: async () => {
+                    if (!token) return;
+
+                    try {
+                      const response = await deleteAccount(token);
+                      if (response.success) {
+                        Alert.alert(
+                          "Account Deleted",
+                          "Your account has been permanently deleted.",
+                          [
+                            {
+                              text: "OK",
+                              onPress: async () => {
+                                await signOut();
+                                router.replace("/");
+                              },
+                            },
+                          ]
+                        );
+                      } else {
+                        Alert.alert(
+                          "Error",
+                          response.message ||
+                            "Failed to delete account. Please try again."
+                        );
+                      }
+                    } catch (error) {
+                      Alert.alert(
+                        "Error",
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to delete account. Please try again."
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  }, [token, signOut, router]);
+
+  const handleProfileOption = useCallback((optionId: string) => {
+    switch (optionId) {
+      case "option-5": // About
+        Alert.alert(
+          "About Arewaflix",
+          `Version: ${Constants.expoConfig?.version || "1.0.0"}\n\nArewaflix brings you the best of Hausa entertainment.\n\nDeveloper: ${Constants.expoConfig?.owner || "Arewaflix Team"}`,
+          [{ text: "OK" }]
+        );
+        break;
+      case "option-6": // Help & Support
+        WebBrowser.openBrowserAsync("https://arewaflix.com/support");
+        break;
+      case "option-1": // My Videos
+      case "option-2": // Subscriptions
+      case "option-3": // Settings
+      case "option-4": // Language
+        Alert.alert(
+          "Coming Soon",
+          "This feature is under development and will be available soon.",
+          [{ text: "OK" }]
+        );
+        break;
+      default:
+        break;
+    }
+  }, []);
 
   const bottomPadding = useMemo(
     () => Math.max(96, insets.bottom + 56),
@@ -214,7 +307,10 @@ export default function ProfileScreen() {
               tint="dark"
               className="overflow-hidden rounded-lg"
             >
-              <Pressable className="items-center justify-center p-4">
+              <Pressable
+                className="items-center justify-center p-4"
+                onPress={() => handleProfileOption(item.id)}
+              >
                 <item.icon size={32} color="white" />
                 <Text className="mt-2 text-center font-semibold text-white">
                   {item.title}
@@ -225,7 +321,46 @@ export default function ProfileScreen() {
         )}
       />
 
-      <View className="absolute bottom-0 left-0 right-0 p-4">
+      <View className="absolute bottom-0 left-0 right-0 p-4 gap-2">
+        {/* Privacy & Terms Links */}
+        <View className="flex-row items-center justify-center gap-4 mb-2">
+          <Pressable
+            onPress={() =>
+              WebBrowser.openBrowserAsync("https://arewaflix.io/privacy")
+            }
+          >
+            <Text className="text-sm text-blue-400 underline">
+              Privacy Policy
+            </Text>
+          </Pressable>
+          <Text className="text-sm text-gray-500">•</Text>
+          <Pressable
+            onPress={() =>
+              WebBrowser.openBrowserAsync("https://arewaflix.io/terms")
+            }
+          >
+            <Text className="text-sm text-blue-400 underline">
+              Terms of Service
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Delete Account Button */}
+        <Pressable
+          onPress={handleDeleteAccount}
+          className="rounded-md bg-red-600/20 border border-red-600/40 px-4 py-3 mb-2"
+          android_ripple={{ color: "rgba(220,38,38,0.2)" }}
+          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+        >
+          <View className="flex-row items-center justify-center gap-2">
+            <Ionicons name="trash-outline" size={18} color="#dc2626" />
+            <Text className="text-center font-semibold text-red-600">
+              Delete Account
+            </Text>
+          </View>
+        </Pressable>
+
+        {/* Sign Out Button */}
         <Pressable
           onPress={handleSignOut}
           className="rounded-md px-4 py-3"

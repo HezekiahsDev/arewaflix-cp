@@ -3,8 +3,11 @@ import { useAuth } from "@/context/AuthContext";
 import { login } from "@/lib/api/auth";
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
 import React, { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -32,9 +35,13 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Optional reviewer credentials (set via EXPO_PUBLIC_... env vars at build time)
-  const REVIEW_USER = process.env.EXPO_PUBLIC_REVIEW_USERNAME;
-  const REVIEW_PASS = process.env.EXPO_PUBLIC_REVIEW_PASSWORD;
+  // Reviewer credentials only in dev mode (never in production)
+  const REVIEW_USER = __DEV__
+    ? process.env.EXPO_PUBLIC_REVIEW_USERNAME
+    : undefined;
+  const REVIEW_PASS = __DEV__
+    ? process.env.EXPO_PUBLIC_REVIEW_PASSWORD
+    : undefined;
 
   const scheme = colorScheme ?? "light";
   const logoSource = useMemo(() => {
@@ -82,10 +89,6 @@ export default function LoginScreen() {
       setLoading(false);
     }
   }, [username, password, signIn, router]);
-
-  const handleSocialLogin = useCallback((provider: string) => {
-    // Social login implementation
-  }, []);
 
   const navigateToSignup = useCallback(() => {
     router.push("/auth/signup");
@@ -198,10 +201,11 @@ export default function LoginScreen() {
                   {REVIEW_USER && REVIEW_PASS && (
                     <View className="mb-4">
                       <Pressable
-                        onPress={() => {
-                          setUsername(REVIEW_USER);
-                          setPassword(REVIEW_PASS);
-                        }}
+                            onPress: () =>
+                                WebBrowser.openBrowserAsync(
+                                  Constants.expoConfig?.extra?.forgotPasswordUrl ||
+                                    "https://arewaflix.io/forgot-password"
+                                ),
                         className="px-4 py-3 border border-gray-300 border-dashed rounded-lg bg-gray-50"
                         accessibilityLabel="Use reviewer credentials"
                       >
@@ -234,7 +238,24 @@ export default function LoginScreen() {
                       </Text>
                     </Pressable>
 
-                    <Pressable>
+                    <Pressable
+                      onPress={() => {
+                        Alert.alert(
+                          "Reset Password",
+                          "To reset your password, please visit our website.",
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            {
+                              text: "Open Website",
+                              onPress: () =>
+                                WebBrowser.openBrowserAsync(
+                                  "https://arewaflix.com/forgot-password"
+                                ),
+                            },
+                          ]
+                        );
+                      }}
+                    >
                       <Text className="text-sm font-semibold text-primary dark:text-primary-dark">
                         Forgot your password?
                       </Text>
@@ -252,84 +273,34 @@ export default function LoginScreen() {
                     </Text>
                   </Pressable>
 
-                  {/* Social Login Buttons */}
-                  <View className="mt-8">
-                    <Text className="mb-4 text-sm font-semibold tracking-wide text-center uppercase text-muted dark:text-muted-dark">
-                      Or continue with
+                  {/* Privacy & Terms Footer */}
+                  <View className="mt-6">
+                    <Text className="text-xs text-center text-muted dark:text-muted-dark">
+                      By logging in, you agree to our{" "}
+                      <Text
+                        className="font-semibold text-primary underline"
+                        onPress={() =>
+                          WebBrowser.openBrowserAsync(
+                            Constants.expoConfig?.extra?.termsUrl ||
+                              "https://arewaflix.io/terms"
+                          )
+                        }
+                      >
+                        Terms of Service
+                      </Text>{" "}
+                      and{" "}
+                      <Text
+                        className="font-semibold text-primary underline"
+                        onPress={() =>
+                          WebBrowser.openBrowserAsync(
+                            Constants.expoConfig?.extra?.privacyPolicyUrl ||
+                              "https://arewaflix.io/privacy"
+                          )
+                        }
+                      >
+                        Privacy Policy
+                      </Text>
                     </Text>
-                    <View className="flex-row flex-wrap gap-3">
-                      <Pressable
-                        onPress={() => handleSocialLogin("Facebook")}
-                        className="flex-1 min-w-[45%] flex-row items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-3 dark:border-gray-600 dark:bg-gray-700"
-                      >
-                        <FontAwesome
-                          name="facebook"
-                          size={18}
-                          color="#1877f2"
-                        />
-                        <Text className="ml-2 text-sm font-medium text-text dark:text-text-dark">
-                          Facebook
-                        </Text>
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() => handleSocialLogin("X")}
-                        className="flex-1 min-w-[45%] flex-row items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-3 dark:border-gray-600 dark:bg-gray-700"
-                      >
-                        <FontAwesome name="twitter" size={18} color="#1DA1F2" />
-                        <Text className="ml-2 text-sm font-medium text-text dark:text-text-dark">
-                          X
-                        </Text>
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() => handleSocialLogin("LinkedIn")}
-                        className="flex-1 min-w-[45%] flex-row items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-3 dark:border-gray-600 dark:bg-gray-700"
-                      >
-                        <FontAwesome
-                          name="linkedin"
-                          size={18}
-                          color="#0077b5"
-                        />
-                        <Text className="ml-2 text-sm font-medium text-text dark:text-text-dark">
-                          LinkedIn
-                        </Text>
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() => handleSocialLogin("Instagram")}
-                        className="flex-1 min-w-[45%] flex-row items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-3 dark:border-gray-600 dark:bg-gray-700"
-                      >
-                        <FontAwesome
-                          name="instagram"
-                          size={18}
-                          color="#E1306C"
-                        />
-                        <Text className="ml-2 text-sm font-medium text-text dark:text-text-dark">
-                          Instagram
-                        </Text>
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() => handleSocialLogin("TikTok")}
-                        className="flex-1 min-w-[45%] flex-row items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-3 dark:border-gray-600 dark:bg-gray-700"
-                      >
-                        <FontAwesome name="music" size={18} color="#000" />
-                        <Text className="ml-2 text-sm font-medium text-text dark:text-text-dark">
-                          TikTok
-                        </Text>
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() => handleSocialLogin("Google")}
-                        className="flex-1 min-w-[45%] flex-row items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-3 dark:border-gray-600 dark:bg-gray-700"
-                      >
-                        <FontAwesome name="google" size={18} color="#DB4437" />
-                        <Text className="ml-2 text-sm font-medium text-text dark:text-text-dark">
-                          Google
-                        </Text>
-                      </Pressable>
-                    </View>
                   </View>
                 </View>
 

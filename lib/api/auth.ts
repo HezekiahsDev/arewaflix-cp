@@ -355,3 +355,74 @@ export async function getProfile(token: string): Promise<ProfileResponse> {
     throw new Error(`Get Profile failed: ${errorMessage}`);
   }
 }
+
+export interface DeleteAccountResponse {
+  success: boolean;
+  message: string;
+  error?: {
+    message: string;
+    details?: string;
+    stack?: string;
+  };
+}
+
+export async function deleteAccount(
+  token: string
+): Promise<DeleteAccountResponse> {
+  const url = `${API_BASE_URL}/api/v1/users/me`;
+  //console.log("🔐 Delete Account Request:");
+  //console.log("URL:", url);
+
+  try {
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    //console.log("Response Status:", response.status);
+    //console.log("Response Status Text:", response.statusText);
+
+    let result: any;
+    try {
+      result = await response.json();
+    } catch {
+      // If not JSON, treat as text error
+      const errorText = await response.text();
+      throw new Error(
+        errorText ||
+          `Delete Account failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    if (!response.ok) {
+      // Return the error response if it's structured
+      if (result && typeof result === "object" && "success" in result) {
+        // Handle structured errors
+        const errorMessage =
+          result.error?.message ||
+          result.message ||
+          `Delete Account failed: ${response.status} ${response.statusText}`;
+        return {
+          success: false,
+          message: errorMessage,
+          error: result.error,
+        } as DeleteAccountResponse;
+      }
+      throw new Error(
+        result?.error?.message ||
+          result?.message ||
+          `Delete Account failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    //console.log("✅ Delete Account Success Response:", result);
+    return result;
+  } catch (error) {
+    console.error("❌ Delete Account Network Error:", error);
+    const errorMessage = getNetworkErrorMessage(error);
+    throw new Error(`Delete Account failed: ${errorMessage}`);
+  }
+}

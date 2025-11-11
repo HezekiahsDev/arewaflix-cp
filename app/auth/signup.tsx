@@ -3,6 +3,8 @@ import { useAuth } from "@/context/AuthContext";
 import { signup } from "@/lib/api/auth";
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Image,
@@ -126,8 +128,8 @@ export default function SignupScreen() {
       edges={["left", "right"]}
       className="flex-1 bg-background dark:bg-background-dark"
     >
-      <View className="border-b border-border bg-background px-4 dark:border-border-dark dark:bg-background-dark">
-        <View className="mx-auto w-full max-w-5xl flex-row items-center justify-between py-2">
+      <View className="px-4 border-b border-border bg-background dark:border-border-dark dark:bg-background-dark">
+        <View className="flex-row items-center justify-between w-full max-w-5xl py-2 mx-auto">
           <Image
             source={logoSource}
             style={{ height: 36, width: 120, resizeMode: "contain" }}
@@ -136,9 +138,9 @@ export default function SignupScreen() {
           />
           <Pressable
             onPress={navigateToLogin}
-            className="rounded-full border border-primary px-5 py-2 dark:border-primary-dark"
+            className="px-5 py-2 border rounded-full border-primary dark:border-primary-dark"
           >
-            <Text className="text-sm font-semibold uppercase tracking-wide text-primary dark:text-primary-dark">
+            <Text className="text-sm font-semibold tracking-wide uppercase text-primary dark:text-primary-dark">
               Log in
             </Text>
           </Pressable>
@@ -158,9 +160,9 @@ export default function SignupScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="flex-1 items-center px-4 py-8">
+          <View className="items-center flex-1 px-4 py-8">
             {/* Main Card Container */}
-            <View className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-lg dark:bg-gray-800">
+            <View className="w-full max-w-5xl overflow-hidden bg-white shadow-lg rounded-3xl dark:bg-gray-800">
               <View className="flex-row">
                 {/* Left Side - Signup Form */}
                 <View className="flex-1 p-8 lg:p-12">
@@ -170,7 +172,7 @@ export default function SignupScreen() {
 
                   {/* Error Message */}
                   {error && (
-                    <View className="mb-5 rounded-lg bg-red-50 p-4 dark:bg-red-900/20">
+                    <View className="p-4 mb-5 rounded-lg bg-red-50 dark:bg-red-900/20">
                       <Text className="text-sm text-red-600 dark:text-red-400">
                         {error}
                       </Text>
@@ -221,7 +223,7 @@ export default function SignupScreen() {
                       />
                       <Pressable
                         onPress={() => setShowPassword(!showPassword)}
-                        className="absolute right-0 top-0 h-full items-center justify-center px-4"
+                        className="absolute top-0 right-0 items-center justify-center h-full px-4"
                       >
                         <FontAwesome
                           name={showPassword ? "eye-slash" : "eye"}
@@ -250,7 +252,7 @@ export default function SignupScreen() {
                         onPress={() =>
                           setShowConfirmPassword(!showConfirmPassword)
                         }
-                        className="absolute right-0 top-0 h-full items-center justify-center px-4"
+                        className="absolute top-0 right-0 items-center justify-center h-full px-4"
                       >
                         <FontAwesome
                           name={showConfirmPassword ? "eye-slash" : "eye"}
@@ -308,11 +310,27 @@ export default function SignupScreen() {
                       </View>
                       <Text className="flex-1 text-sm text-muted dark:text-muted-dark">
                         By creating your account, you agree to our{" "}
-                        <Text className="font-semibold text-primary">
+                        <Text
+                          className="font-semibold text-primary"
+                          onPress={() =>
+                            WebBrowser.openBrowserAsync(
+                              Constants.expoConfig?.extra?.termsUrl ||
+                                "https://arewaflix.io/terms"
+                            )
+                          }
+                        >
                           Terms of use
                         </Text>{" "}
                         &{" "}
-                        <Text className="font-semibold text-primary">
+                        <Text
+                          className="font-semibold text-primary"
+                          onPress={() =>
+                            WebBrowser.openBrowserAsync(
+                              Constants.expoConfig?.extra?.privacyPolicyUrl ||
+                                "https://arewaflix.io/privacy"
+                            )
+                          }
+                        >
                           Privacy Policy
                         </Text>
                       </Text>
@@ -323,18 +341,18 @@ export default function SignupScreen() {
                   <Pressable
                     onPress={onSubmit}
                     disabled={loading}
-                    className="mb-8 rounded-lg bg-primary px-6 py-4 dark:bg-primary-dark"
+                    className="px-6 py-4 mb-8 rounded-lg bg-primary dark:bg-primary-dark"
                   >
-                    <Text className="text-center text-base font-bold uppercase tracking-wide text-white">
+                    <Text className="text-base font-bold tracking-wide text-center text-white uppercase">
                       {loading ? "Please wait..." : "Create account"}
                     </Text>
                   </Pressable>
                 </View>
 
                 {/* Right Side - small info panel (hidden on mobile) */}
-                <View className="hidden w-80 items-center justify-center bg-primary/10 p-8 dark:bg-primary-dark/10 lg:flex">
+                <View className="items-center justify-center hidden p-8 w-80 bg-primary/10 dark:bg-primary-dark/10 lg:flex">
                   <View className="items-center">
-                    <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-primary/20 dark:bg-primary-dark/20">
+                    <View className="items-center justify-center w-16 h-16 mb-4 rounded-full bg-primary/20 dark:bg-primary-dark/20">
                       <FontAwesome
                         name="user-plus"
                         size={32}
@@ -344,7 +362,7 @@ export default function SignupScreen() {
                     <Text className="mb-2 text-xl font-bold text-text dark:text-text-dark">
                       Join Arewaflix
                     </Text>
-                    <Text className="mb-6 text-center text-sm text-muted dark:text-muted-dark">
+                    <Text className="mb-6 text-sm text-center text-muted dark:text-muted-dark">
                       Create an account to save favorite videos and follow
                       channels.
                     </Text>
@@ -355,7 +373,7 @@ export default function SignupScreen() {
 
             {/* Mobile sign-in link */}
             <View className="mt-6 lg:hidden">
-              <Text className="text-center text-sm text-muted dark:text-muted-dark">
+              <Text className="text-sm text-center text-muted dark:text-muted-dark">
                 Already have an account?{" "}
                 <Text
                   className="font-semibold text-primary"

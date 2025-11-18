@@ -212,7 +212,7 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-background dark:bg-background-dark">
+      <View className="items-center justify-center flex-1 bg-background dark:bg-background-dark">
         <ActivityIndicator size="large" />
       </View>
     );
@@ -220,13 +220,13 @@ export default function ProfileScreen() {
 
   if (error) {
     return (
-      <View className="flex-1 items-center justify-center bg-background p-4 dark:bg-background-dark">
+      <View className="items-center justify-center flex-1 p-4 bg-background dark:bg-background-dark">
         <Text className="text-lg text-destructive dark:text-destructive-dark">
           Error: {error}
         </Text>
         <Pressable
           onPress={fetchProfile}
-          className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground dark:bg-primary-dark dark:text-primary-foreground-dark"
+          className="px-4 py-2 mt-4 rounded-md bg-primary text-primary-foreground dark:bg-primary-dark dark:text-primary-foreground-dark"
         >
           <Text>Try Again</Text>
         </Pressable>
@@ -237,21 +237,21 @@ export default function ProfileScreen() {
   // If user is not authenticated, show a friendly prompt with Login and Back buttons
   if (!token && !profile) {
     return (
-      <View className="flex-1 items-center justify-center bg-background p-6 dark:bg-background-dark">
-        <Text className="mb-4 text-center text-lg font-semibold text-white">
+      <View className="items-center justify-center flex-1 p-6 bg-background dark:bg-background-dark">
+        <Text className="mb-4 text-lg font-semibold text-center text-white">
           You need to be logged in to view your profile.
         </Text>
         <View className="flex-row gap-3">
           <Pressable
             onPress={() => router.push("/auth/login")}
-            className="rounded-md bg-primary px-4 py-3"
+            className="px-4 py-3 rounded-md bg-primary"
           >
             <Text className="text-white">Login</Text>
           </Pressable>
 
           <Pressable
             onPress={() => router.back()}
-            className="rounded-md bg-surface-muted px-4 py-3"
+            className="px-4 py-3 rounded-md bg-surface-muted"
           >
             <Text>Back</Text>
           </Pressable>
@@ -279,15 +279,15 @@ export default function ProfileScreen() {
             justifyContent: "center",
           }}
         >
-          <Text className="text-8xl font-bold text-white">
+          <Text className="font-bold text-white text-8xl">
             {(profile?.username || "U").charAt(0).toUpperCase()}
           </Text>
         </LinearGradient>
 
-        <Text className="mt-4 text-2xl font-bold text-blue-500 text-center">
+        <Text className="mt-4 text-2xl font-bold text-center text-blue-500">
           {profile?.username}
         </Text>
-        <Text className="text-md text-blue-400 text-center">
+        <Text className="text-center text-blue-400 text-md">
           {profile?.email}
         </Text>
       </View>
@@ -312,7 +312,7 @@ export default function ProfileScreen() {
                 onPress={() => handleProfileOption(item.id)}
               >
                 <item.icon size={32} color="white" />
-                <Text className="mt-2 text-center font-semibold text-white">
+                <Text className="mt-2 font-semibold text-center text-white">
                   {item.title}
                 </Text>
               </Pressable>
@@ -321,7 +321,7 @@ export default function ProfileScreen() {
         )}
       />
 
-      <View className="absolute bottom-0 left-0 right-0 p-4 gap-2">
+      <View className="absolute bottom-0 left-0 right-0 gap-2 p-4">
         {/* Privacy & Terms Links */}
         <View className="flex-row items-center justify-center gap-4 mb-2">
           <Pressable
@@ -347,29 +347,29 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
+        {/* Sign Out Button */}
+        <Pressable
+          onPress={handleSignOut}
+          className="px-4 py-3 rounded-md"
+          android_ripple={{ color: "rgba(255,255,255,0.1)" }}
+          style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+        >
+          <Text className="font-bold text-center text-white">Sign Out</Text>
+        </Pressable>
+
         {/* Delete Account Button */}
         <Pressable
           onPress={handleDeleteAccount}
-          className="rounded-md bg-red-600/20 border border-red-600/40 px-4 py-3 mb-2"
+          className="px-4 py-3 mb-2 border rounded-md bg-red-600/20 border-red-600/40"
           android_ripple={{ color: "rgba(220,38,38,0.2)" }}
           style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
         >
           <View className="flex-row items-center justify-center gap-2">
             <Ionicons name="trash-outline" size={18} color="#dc2626" />
-            <Text className="text-center font-semibold text-red-600">
+            <Text className="font-semibold text-center text-red-600">
               Delete Account
             </Text>
           </View>
-        </Pressable>
-
-        {/* Sign Out Button */}
-        <Pressable
-          onPress={handleSignOut}
-          className="rounded-md px-4 py-3"
-          android_ripple={{ color: "rgba(255,255,255,0.1)" }}
-          style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Text className="text-center font-bold text-white">Sign Out</Text>
         </Pressable>
       </View>
     </View>

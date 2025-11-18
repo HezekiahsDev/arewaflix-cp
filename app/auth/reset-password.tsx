@@ -43,8 +43,16 @@ export default function ResetPasswordScreen() {
     storeToken ?? (typeof params.token === "string" ? params.token : "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passwordStrengthLabel, setPasswordStrengthLabel] = useState<
+    "" | "Weak" | "Medium" | "Strong"
+  >("");
+  const [passwordStrengthScore, setPasswordStrengthScore] = useState(0);
+  const [showConfirmLast, setShowConfirmLast] = useState(false);
+  const confirmLastTimeout = React.useRef<number | null>(null);
 
   const scheme = colorScheme ?? "light";
   const logoSource = useMemo(() => {
@@ -54,6 +62,21 @@ export default function ResetPasswordScreen() {
   }, [scheme]);
 
   const validateEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
+
+  const computePasswordStrength = (pw: string) => {
+    let score = 0;
+    if (pw.length >= 8) score += 1;
+    if (/[a-z]/.test(pw)) score += 1;
+    if (/[A-Z]/.test(pw)) score += 1;
+    if (/\d/.test(pw)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+    // score 0-5
+    let label: "" | "Weak" | "Medium" | "Strong" = "";
+    if (score <= 2) label = "Weak";
+    else if (score <= 4) label = "Medium";
+    else label = "Strong";
+    return { score, label };
+  };
 
   const onSubmit = useCallback(async () => {
     setError(null);
@@ -99,6 +122,46 @@ export default function ResetPasswordScreen() {
       setLoading(false);
     }
   }, [email, token, password, confirmPassword, router]);
+
+  // update strength as user types
+  React.useEffect(() => {
+    if (!password) {
+      setPasswordStrengthLabel("");
+      setPasswordStrengthScore(0);
+      return;
+    }
+    const { score, label } = computePasswordStrength(password);
+    setPasswordStrengthScore(score);
+    setPasswordStrengthLabel(label);
+  }, [password]);
+
+  // handle confirm input last-char reveal
+  const onChangeConfirm = (value: string) => {
+    // Clear existing timeout
+    if (confirmLastTimeout.current) {
+      clearTimeout(confirmLastTimeout.current as any);
+      confirmLastTimeout.current = null;
+    }
+    // If masked mode, briefly reveal last char
+    if (!showConfirmPassword && value.length > confirmPassword.length) {
+      setShowConfirmLast(true);
+      confirmLastTimeout.current = window.setTimeout(() => {
+        setShowConfirmLast(false);
+        confirmLastTimeout.current = null;
+      }, 700);
+    }
+    setConfirmPassword(value);
+  };
+
+  // accessibility: announce inline errors to screen readers
+  const inlineAnnouncement =
+    error ||
+    (password && (password.length < 8 || password.length > 128)
+      ? "Password must be 8 to 128 characters."
+      : "") ||
+    (confirmPassword && password !== confirmPassword
+      ? "Passwords do not match."
+      : "");
 
   const navigateToLogin = useCallback(() => {
     router.push("/auth/login" as any);
@@ -162,6 +225,17 @@ export default function ResetPasswordScreen() {
                     </View>
                   )}
 
+                  {/* Accessibility live region for inline announcements (screen readers) */}
+                  {inlineAnnouncement ? (
+                    <Text
+                      accessibilityLiveRegion="polite"
+                      accessibilityRole="alert"
+                      style={{ position: "absolute", left: -10000 }}
+                    >
+                      {inlineAnnouncement}
+                    </Text>
+                  ) : null}
+
                   {/* Email is kept in component state (prefilled from params)
                       but hidden from the UI on this screen. If you need to
                       surface the input again for debugging, re-enable the
@@ -175,31 +249,96 @@ export default function ResetPasswordScreen() {
                   {/* The OTP has already been verified on the previous screen; we only need the new password here. */}
 
                   <View className="mb-4">
-                    <TextInput
-                      value={password}
-                      onChangeText={setPassword}
-                      placeholder="New password"
-                      placeholderTextColor="#9ca3af"
-                      secureTextEntry
-                      className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
-                    />
-                    <Text className="mt-2 text-sm text-muted dark:text-muted-dark">
+                    <View className="relative">
+                      <TextInput
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder="New password"
+                        placeholderTextColor="#9ca3af"
+                        secureTextEntry={!showPassword}
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
+                      />
+                      <Pressable
+                        onPress={() => setShowPassword(!showPassword)}
+                        className="absolute top-0 right-0 items-center justify-center h-full px-4"
+                      >
+                        <FontAwesome
+                          name={showPassword ? "eye-slash" : "eye"}
+                          size={20}
+                          color="#9ca3af"
+                        />
+                      </Pressable>
+                    </View>
+                    <Text className="mt-2 text-sm font-medium text-muted dark:text-muted-dark">
                       New password
                     </Text>
+                    {password.length > 0 &&
+                      (password.length < 8 || password.length > 128) && (
+                        <Text className="mt-1 text-sm text-red-600 dark:text-red-400">
+                          Password must be 8 to 128 characters.
+                        </Text>
+                      )}
                   </View>
 
                   <View className="mb-4">
-                    <TextInput
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder="Confirm password"
-                      placeholderTextColor="#9ca3af"
-                      secureTextEntry
-                      className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
-                    />
-                    <Text className="mt-2 text-sm text-muted dark:text-muted-dark">
+                    <View className="relative">
+                      {showConfirmPassword ? (
+                        <TextInput
+                          value={confirmPassword}
+                          onChangeText={onChangeConfirm}
+                          placeholder="Confirm password"
+                          placeholderTextColor="#9ca3af"
+                          secureTextEntry={false}
+                          className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
+                        />
+                      ) : (
+                        <>
+                          <TextInput
+                            value={confirmPassword}
+                            onChangeText={onChangeConfirm}
+                            keyboardType="default"
+                            secureTextEntry={false}
+                            className="absolute w-full h-full opacity-0"
+                          />
+                          <Pressable
+                            onPress={() => {
+                              /* focus captured by hidden input */
+                            }}
+                            className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base"
+                          >
+                            <Text className="text-base text-text dark:text-text-dark">
+                              {confirmPassword.length === 0
+                                ? ""
+                                : `${"•".repeat(
+                                    Math.max(0, confirmPassword.length - 1)
+                                  )}${showConfirmLast ? confirmPassword[confirmPassword.length - 1] : "•"}`}
+                            </Text>
+                          </Pressable>
+                        </>
+                      )}
+
+                      <Pressable
+                        onPress={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        className="absolute top-0 right-0 items-center justify-center h-full px-4"
+                      >
+                        <FontAwesome
+                          name={showConfirmPassword ? "eye-slash" : "eye"}
+                          size={20}
+                          color="#9ca3af"
+                        />
+                      </Pressable>
+                    </View>
+                    <Text className="mt-2 text-sm font-medium text-muted dark:text-muted-dark">
                       Confirm password
                     </Text>
+                    {confirmPassword.length > 0 &&
+                      password !== confirmPassword && (
+                        <Text className="mt-1 text-sm text-red-600 dark:text-red-400">
+                          Passwords do not match.
+                        </Text>
+                      )}
                   </View>
 
                   <Pressable

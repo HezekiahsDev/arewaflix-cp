@@ -188,7 +188,7 @@ export default function ProfileScreen() {
         );
         break;
       case "option-6": // Help & Support
-        WebBrowser.openBrowserAsync("https://arewaflix.com/support");
+        WebBrowser.openBrowserAsync("https://arewaflix.com/terms/faqs");
         break;
       case "option-1": // My Videos
       case "option-2": // Subscriptions
@@ -326,7 +326,9 @@ export default function ProfileScreen() {
         <View className="flex-row items-center justify-center gap-4 mb-2">
           <Pressable
             onPress={() =>
-              WebBrowser.openBrowserAsync("https://arewaflix.io/privacy")
+              WebBrowser.openBrowserAsync(
+                "https://arewaflix.com/terms/privacy-policy"
+              )
             }
           >
             <Text className="text-sm text-blue-400 underline">
@@ -336,7 +338,7 @@ export default function ProfileScreen() {
           <Text className="text-sm text-gray-500">•</Text>
           <Pressable
             onPress={() =>
-              WebBrowser.openBrowserAsync("https://arewaflix.io/terms")
+              WebBrowser.openBrowserAsync("https://arewaflix.com/terms/terms")
             }
           >
             <Text className="text-sm text-blue-400 underline">

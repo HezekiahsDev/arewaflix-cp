@@ -105,7 +105,7 @@ If you want to add social login later, you must implement:
 **Changes Made:**
 
 - ✅ **About** - Shows app version and developer info via Alert
-- ✅ **Help & Support** - Opens `https://arewaflix.com/support` in browser
+- ✅ **Help & Support** - Opens `https://arewaflix.com/terms/faqs` in browser
 - ✅ **Other options** (My Videos, Subscriptions, Settings, Language) - Show "Coming Soon" alert
 - ✅ All tiles now respond to taps
 
@@ -192,7 +192,7 @@ Create a password reset page at `https://arewaflix.com/forgot-password` or updat
    - Or update the URL in `app/auth/login.tsx` to your existing page
 
 3. **Support Page** (Low Priority)
-   - Create page at `https://arewaflix.com/support`
+   - Create page at `https://arewaflix.com/terms/faqs`
    - Or update the URL in `app/(tabs)/profile.tsx`
 
 ---

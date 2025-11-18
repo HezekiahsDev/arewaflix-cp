@@ -426,3 +426,186 @@ export async function deleteAccount(
     throw new Error(`Delete Account failed: ${errorMessage}`);
   }
 }
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface SimpleResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * Request a password reset for an email address.
+ * Assumes backend exposes POST /api/v1/auth/forgot-password that accepts { email }
+ * Returns the parsed JSON response or throws an Error on network/parse problems.
+ *
+ * NOTE: If your backend uses a different path, update this function accordingly.
+ */
+export async function requestPasswordReset(
+  data: ForgotPasswordRequest
+): Promise<SimpleResponse> {
+  const url = `${API_BASE_URL}/api/v1/auth/forgot-password/request`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    // Read text first to avoid "Already read" errors on some platforms
+    const text = await response.text();
+    let result: any = null;
+    try {
+      result = text ? JSON.parse(text) : null;
+    } catch (e) {
+      // not JSON, keep raw text in `result`
+      result = text;
+    }
+
+    if (!response.ok) {
+      if (result && typeof result === "object" && "success" in result) {
+        return {
+          success: false,
+          message: result.message || "Request failed",
+        } as SimpleResponse;
+      }
+      throw new Error(
+        (result && (result.error?.message || result.message)) ||
+          text ||
+          `Request failed: ${response.status}`
+      );
+    }
+
+    // If server returned structured JSON use it, otherwise return a success wrapper
+    if (result && typeof result === "object") {
+      return result;
+    }
+    return { success: true, message: String(text || "") } as SimpleResponse;
+  } catch (error) {
+    console.error("❌ Password Reset Network Error:", error);
+    const errorMessage = getNetworkErrorMessage(error);
+    throw new Error(`Password reset failed: ${errorMessage}`);
+  }
+}
+
+export interface ConfirmResetRequest {
+  email: string;
+  otp: string;
+  password: string;
+}
+
+/**
+ * Confirm a password reset by sending email + otp + new password.
+ * Backend expects POST /api/v1/auth/reset-password with body { email, otp, password }
+ */
+export async function confirmPasswordReset(
+  data: ConfirmResetRequest
+): Promise<SimpleResponse> {
+  const url = `${API_BASE_URL}/api/v1/auth/reset-password`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    const text = await response.text();
+    let result: any = null;
+    try {
+      result = text ? JSON.parse(text) : null;
+    } catch (e) {
+      result = text;
+    }
+
+    if (!response.ok) {
+      if (result && typeof result === "object" && "success" in result) {
+        return {
+          success: false,
+          message: result.message || "Request failed",
+        } as SimpleResponse;
+      }
+      throw new Error(
+        (result && (result.error?.message || result.message)) ||
+          text ||
+          `Request failed: ${response.status}`
+      );
+    }
+
+    if (result && typeof result === "object") {
+      return result;
+    }
+    return { success: true, message: String(text || "") } as SimpleResponse;
+  } catch (error) {
+    console.error("❌ Reset Confirmation Network Error:", error);
+    const errorMessage = getNetworkErrorMessage(error);
+    throw new Error(`Reset confirmation failed: ${errorMessage}`);
+  }
+}
+
+export interface VerifyOtpRequest {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyOtpResponse extends SimpleResponse {
+  token?: string;
+}
+
+/**
+ * Verify OTP (email + otp). Backend endpoint: POST /api/v1/auth/verify-otp
+ * Returns { success: true, message, token } on success (token optional/short-lived)
+ */
+export async function verifyOtp(
+  data: VerifyOtpRequest
+): Promise<VerifyOtpResponse> {
+  const url = `${API_BASE_URL}/api/v1/auth/verify-otp`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    const text = await response.text();
+    let result: any = null;
+    try {
+      result = text ? JSON.parse(text) : null;
+    } catch (e) {
+      result = text;
+    }
+
+    if (!response.ok) {
+      if (result && typeof result === "object" && "success" in result) {
+        return {
+          success: false,
+          message: result.message || "Verification failed",
+        } as VerifyOtpResponse;
+      }
+      throw new Error(
+        (result && (result.error?.message || result.message)) ||
+          text ||
+          `Request failed: ${response.status}`
+      );
+    }
+
+    if (result && typeof result === "object") {
+      return result;
+    }
+    return { success: true, message: String(text || "") } as VerifyOtpResponse;
+  } catch (error) {
+    console.error("❌ OTP Verification Network Error:", error);
+    const errorMessage = getNetworkErrorMessage(error);
+    throw new Error(`OTP verification failed: ${errorMessage}`);
+  }
+}

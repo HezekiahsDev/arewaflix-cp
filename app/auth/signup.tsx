@@ -313,7 +313,7 @@ export default function SignupScreen() {
                           className="font-semibold text-primary"
                           onPress={() =>
                             WebBrowser.openBrowserAsync(
-                              "https://arewaflix.io/terms"
+                              "https://arewaflix.com/terms/terms"
                             )
                           }
                         >
@@ -324,7 +324,7 @@ export default function SignupScreen() {
                           className="font-semibold text-primary"
                           onPress={() =>
                             WebBrowser.openBrowserAsync(
-                              "https://arewaflix.io/privacy"
+                              "https://arewaflix.com/terms/privacy-policy"
                             )
                           }
                         >
@@ -333,28 +333,6 @@ export default function SignupScreen() {
                       </Text>
                     </Pressable>
                   </View>
-
-                  {/*
-                    Social login (disabled)
-                    Commented out so non-functional social buttons aren't visible.
-
-                    Example (commented):
-
-                    <View className="my-4">
-                      <Text className="text-sm text-center text-muted dark:text-muted-dark">Or continue with</Text>
-                      <View className="flex-row justify-center gap-3 mt-3">
-                        <Pressable className="px-4 py-3 rounded-lg border border-gray-300 bg-white" accessibilityLabel="Continue with Google">
-                          <FontAwesome name="google" size={20} color="#DB4437" />
-                        </Pressable>
-                        <Pressable className="px-4 py-3 rounded-lg border border-gray-300 bg-white" accessibilityLabel="Continue with Facebook">
-                          <FontAwesome name="facebook" size={20} color="#1877F2" />
-                        </Pressable>
-                        <Pressable className="px-4 py-3 rounded-lg border border-gray-300 bg-white" accessibilityLabel="Continue with Apple">
-                          <FontAwesome name="apple" size={20} color="#000" />
-                        </Pressable>
-                      </View>
-                    </View>
-                  */}
 
                   {/* Signup Button */}
                   <Pressable

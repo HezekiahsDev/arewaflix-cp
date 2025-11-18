@@ -6,7 +6,6 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -238,20 +237,7 @@ export default function LoginScreen() {
 
                     <Pressable
                       onPress={() => {
-                        Alert.alert(
-                          "Reset Password",
-                          "To reset your password, please visit our website.",
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            {
-                              text: "Open Website",
-                              onPress: () =>
-                                WebBrowser.openBrowserAsync(
-                                  "https://arewaflix.com/forgot-password"
-                                ),
-                            },
-                          ]
-                        );
+                        router.push("/auth/forgot-password" as any);
                       }}
                     >
                       <Text className="text-sm font-semibold text-primary dark:text-primary-dark">
@@ -259,32 +245,6 @@ export default function LoginScreen() {
                       </Text>
                     </Pressable>
                   </View>
-
-                  {/*
-                    Social login (disabled)
-                    The social sign-in buttons are not available yet. Keeping this
-                    placeholder commented out so reviewers don't see non-functional UI.
-
-                    To enable later, remove the surrounding comment block and
-                    implement the OAuth flows (Google, Facebook, Apple).
-
-                    Example placeholder UI (commented out):
-
-                    <View className="my-4">
-                      <Text className="text-sm text-center text-muted dark:text-muted-dark">Or continue with</Text>
-                      <View className="flex-row justify-center gap-3 mt-3">
-                        <Pressable className="px-4 py-3 bg-white border border-gray-300 rounded-lg" accessibilityLabel="Continue with Google">
-                          <FontAwesome name="google" size={20} color="#DB4437" />
-                        </Pressable>
-                        <Pressable className="px-4 py-3 bg-white border border-gray-300 rounded-lg" accessibilityLabel="Continue with Facebook">
-                          <FontAwesome name="facebook" size={20} color="#1877F2" />
-                        </Pressable>
-                        <Pressable className="px-4 py-3 bg-white border border-gray-300 rounded-lg" accessibilityLabel="Continue with Apple">
-                          <FontAwesome name="apple" size={20} color="#000" />
-                        </Pressable>
-                      </View>
-                    </View>
-                  */}
 
                   {/* Login Button */}
                   <Pressable
@@ -305,7 +265,7 @@ export default function LoginScreen() {
                         className="font-semibold underline text-primary"
                         onPress={() =>
                           WebBrowser.openBrowserAsync(
-                            "https://arewaflix.io/terms"
+                            "https://arewaflix.com/terms/terms"
                           )
                         }
                       >
@@ -316,7 +276,7 @@ export default function LoginScreen() {
                         className="font-semibold underline text-primary"
                         onPress={() =>
                           WebBrowser.openBrowserAsync(
-                            "https://arewaflix.io/privacy"
+                            "https://arewaflix.com/terms/privacy-policy"
                           )
                         }
                       >

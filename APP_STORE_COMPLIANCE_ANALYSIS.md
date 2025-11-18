@@ -58,7 +58,7 @@ These are just styled text with no `onPress` handlers or navigation.
 **Action Required:**
 
 1. **Create Privacy Policy & Terms of Service documents**
-   - Host on `arewaflix.io` domain (e.g., `https://arewaflix.io/privacy`, `https://arewaflix.io/terms`)
+   - Host on `arewaflix.io` domain (e.g., `https://arewaflix.com/terms/privacy-policy`, `https://arewaflix.com/terms/terms`)
    - Must include:
      - What data you collect (email, username, IP address, device ID, etc.)
      - How you use the data
@@ -72,7 +72,7 @@ These are just styled text with no `onPress` handlers or navigation.
 ```json
 {
   "expo": {
-    "privacy": "https://arewaflix.io/privacy",
+    "privacy": "https://arewaflix.com/terms/privacy-policy",
     "ios": {
       "config": {
         "usesNonExemptEncryption": false
@@ -91,11 +91,11 @@ These are just styled text with no `onPress` handlers or navigation.
 import * as WebBrowser from 'expo-web-browser';
 
 // In the consent section:
-<Pressable onPress={() => WebBrowser.openBrowserAsync('https://arewaflix.io/terms')}>
+<Pressable onPress={() => WebBrowser.openBrowserAsync('https://arewaflix.com/terms/terms')}>
   <Text className="font-semibold text-primary">Terms of use</Text>
 </Pressable>
 {" "}&{" "}
-<Pressable onPress={() => WebBrowser.openBrowserAsync('https://arewaflix.io/privacy')}>
+<Pressable onPress={() => WebBrowser.openBrowserAsync('https://arewaflix.com/terms/privacy-policy')}>
   <Text className="font-semibold text-primary">Privacy Policy</Text>
 </Pressable>
 ```

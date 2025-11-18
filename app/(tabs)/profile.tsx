@@ -7,7 +7,7 @@ import {
   VideoIcon,
 } from "@/assets/icons/icon-pack-one";
 import { AuthUser, useAuth } from "@/context/AuthContext";
-import { deleteAccount, getProfile } from "@/lib/api/auth";
+import { deleteAccount, getProfile, updateProfile } from "@/lib/api/auth";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import Constants from "expo-constants";
@@ -70,6 +70,7 @@ const profileOptions = [
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { token, user: authUser, signOut } = useAuth();
+  const { signIn } = useAuth();
   const [profile, setProfile] = useState<AuthUser | null>(authUser);
   const [loading, setLoading] = useState(!authUser);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +81,16 @@ export default function ProfileScreen() {
   >(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const [formUsername, setFormUsername] = useState<string>("");
+  const [formEmail, setFormEmail] = useState<string>("");
+  const [formFirstName, setFormFirstName] = useState<string>("");
+  const [formLastName, setFormLastName] = useState<string>("");
+  const [formLanguage, setFormLanguage] = useState<string>("");
   const router = require("expo-router").useRouter();
 
   const fetchProfile = useCallback(async () => {
@@ -111,6 +122,16 @@ export default function ProfileScreen() {
       fetchProfile();
     }
   }, [profile, fetchProfile]);
+
+  useEffect(() => {
+    if (profile) {
+      setFormUsername(profile.username || "");
+      setFormEmail(profile.email || "");
+      setFormFirstName(profile.first_name || "");
+      setFormLastName(profile.last_name || "");
+      setFormLanguage(profile.language || "");
+    }
+  }, [profile]);
 
   const handleSignOut = useCallback(() => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -287,12 +308,25 @@ export default function ProfileScreen() {
           </Text>
         </LinearGradient>
 
-        <Text className="mt-4 text-2xl font-bold text-center text-blue-500">
-          {profile?.username}
-        </Text>
-        <Text className="text-center text-blue-400 text-md">
-          {profile?.email}
-        </Text>
+        <Pressable onPress={() => setShowProfileModal(true)}>
+          <Text className="mt-4 text-2xl font-bold text-center text-blue-500">
+            {profile?.username}
+          </Text>
+          <Text className="text-center text-blue-400 text-md">
+            {profile?.email}
+          </Text>
+        </Pressable>
+        {/* Visible View Profile button for discoverability */}
+        <Pressable
+          onPress={() => setShowProfileModal(true)}
+          className="px-4 py-2 mt-3 rounded-md bg-primary"
+          android_ripple={{ color: "rgba(255,255,255,0.08)" }}
+          style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
+        >
+          <Text className="font-semibold text-center text-white">
+            View Profile
+          </Text>
+        </Pressable>
       </View>
 
       <FlatList
@@ -479,6 +513,240 @@ export default function ProfileScreen() {
                       <Text className="font-semibold text-white">Delete</Text>
                     )}
                   </Pressable>
+                </View>
+              </View>
+            </BlurView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Profile Details / Edit Modal */}
+      <Modal
+        visible={showProfileModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!updateLoading) {
+            setShowProfileModal(false);
+            setIsEditing(false);
+            setUpdateError(null);
+          }
+        }}
+      >
+        <View className="items-center justify-center flex-1 p-4 bg-overlay dark:bg-overlay-dark">
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            className="w-full max-w-md"
+          >
+            <BlurView
+              intensity={80}
+              tint="dark"
+              className="overflow-hidden rounded-lg"
+            >
+              <View className="p-4 bg-surface dark:bg-background-dark">
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-lg font-semibold text">Profile</Text>
+                  <Pressable
+                    onPress={() => {
+                      if (!updateLoading) {
+                        setShowProfileModal(false);
+                        setIsEditing(false);
+                        setUpdateError(null);
+                      }
+                    }}
+                  >
+                    <Text className="text-muted">Close</Text>
+                  </Pressable>
+                </View>
+
+                {/* Fields */}
+                <View className="mb-3 space-y-3">
+                  <View>
+                    <Text className="mb-1 text-sm text-muted">Username</Text>
+                    {isEditing ? (
+                      <TextInput
+                        value={formUsername}
+                        onChangeText={setFormUsername}
+                        editable={!updateLoading}
+                        className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
+                      />
+                    ) : (
+                      <Text className="mb-1 text">{profile?.username}</Text>
+                    )}
+                  </View>
+
+                  <View>
+                    <Text className="mb-1 text-sm text-muted">Email</Text>
+                    {isEditing ? (
+                      <TextInput
+                        value={formEmail}
+                        onChangeText={setFormEmail}
+                        editable={!updateLoading}
+                        keyboardType="email-address"
+                        className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
+                      />
+                    ) : (
+                      <Text className="mb-1 text">{profile?.email}</Text>
+                    )}
+                  </View>
+
+                  <View className="flex-row gap-2">
+                    <View className="flex-1">
+                      <Text className="mb-1 text-sm text-muted">
+                        First name
+                      </Text>
+                      {isEditing ? (
+                        <TextInput
+                          value={formFirstName}
+                          onChangeText={setFormFirstName}
+                          editable={!updateLoading}
+                          className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
+                        />
+                      ) : (
+                        <Text className="mb-1 text">
+                          {profile?.first_name || "—"}
+                        </Text>
+                      )}
+                    </View>
+
+                    <View className="flex-1">
+                      <Text className="mb-1 text-sm text-muted">Last name</Text>
+                      {isEditing ? (
+                        <TextInput
+                          value={formLastName}
+                          onChangeText={setFormLastName}
+                          editable={!updateLoading}
+                          className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
+                        />
+                      ) : (
+                        <Text className="mb-1 text">
+                          {profile?.last_name || "—"}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View>
+                    <Text className="mb-1 text-sm text-muted">Language</Text>
+                    {isEditing ? (
+                      <TextInput
+                        value={formLanguage}
+                        onChangeText={setFormLanguage}
+                        editable={!updateLoading}
+                        className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
+                      />
+                    ) : (
+                      <Text className="mb-1 text">
+                        {profile?.language || "—"}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {updateError ? (
+                  <Text className="mb-2 text-sm text-destructive">
+                    {updateError}
+                  </Text>
+                ) : null}
+
+                <View className="flex-row justify-end gap-3">
+                  {isEditing ? (
+                    <>
+                      <Pressable
+                        onPress={() => {
+                          if (updateLoading) return;
+                          // Cancel edits, reset fields to current profile
+                          setFormUsername(profile?.username || "");
+                          setFormEmail(profile?.email || "");
+                          setFormFirstName(profile?.first_name || "");
+                          setFormLastName(profile?.last_name || "");
+                          setFormLanguage(profile?.language || "");
+                          setIsEditing(false);
+                          setUpdateError(null);
+                        }}
+                        className="px-4 py-3 rounded-lg bg-surface-muted"
+                      >
+                        <Text>Cancel</Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={async () => {
+                          if (!token) {
+                            Alert.alert("Not authenticated");
+                            return;
+                          }
+
+                          setUpdateError(null);
+                          setUpdateLoading(true);
+
+                          try {
+                            const payload: any = {};
+                            // Only include changed fields to be safe
+                            if (formUsername !== profile?.username)
+                              payload.username = formUsername;
+                            if (formEmail !== profile?.email)
+                              payload.email = formEmail;
+                            if (formFirstName !== profile?.first_name)
+                              payload.first_name = formFirstName;
+                            if (formLastName !== profile?.last_name)
+                              payload.last_name = formLastName;
+                            if (formLanguage !== profile?.language)
+                              payload.language = formLanguage;
+
+                            const res = await updateProfile(token, payload);
+                            if (res.success && res.data) {
+                              setProfile(res.data);
+                              try {
+                                // Persist updated user to auth context storage
+                                await signIn(res.data, token);
+                              } catch (e) {
+                                // ignore signIn persistence errors
+                              }
+                              setIsEditing(false);
+                              Alert.alert(
+                                "Profile Updated",
+                                "Your profile has been updated."
+                              );
+                            } else {
+                              setUpdateError(
+                                res.message || "Failed to update profile"
+                              );
+                              Alert.alert(
+                                "Error",
+                                res.message || "Failed to update profile"
+                              );
+                            }
+                          } catch (err: any) {
+                            const message =
+                              err instanceof Error ? err.message : String(err);
+                            setUpdateError(message);
+                            Alert.alert(
+                              "Error",
+                              message || "Failed to update profile"
+                            );
+                          } finally {
+                            setUpdateLoading(false);
+                          }
+                        }}
+                        className="px-4 py-3 rounded-lg bg-primary"
+                      >
+                        {updateLoading ? (
+                          <ActivityIndicator color="white" />
+                        ) : (
+                          <Text className="font-semibold text-white">Save</Text>
+                        )}
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Pressable
+                      onPress={() => setIsEditing(true)}
+                      className="px-4 py-3 rounded-lg bg-primary"
+                    >
+                      <Text className="font-semibold text-white">
+                        Edit Profile
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             </BlurView>

@@ -614,3 +614,77 @@ export async function verifyOtp(
     throw new Error(`OTP verification failed: ${errorMessage}`);
   }
 }
+
+export interface UpdateProfileRequest {
+  username?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  language?: string;
+}
+
+export interface UpdateProfileResponse {
+  success: boolean;
+  message: string;
+  data?: AuthUser;
+  error?: {
+    message: string;
+    details?: string;
+    stack?: string;
+  };
+}
+
+/**
+ * Update current user's profile via PUT /api/v1/users/me
+ */
+export async function updateProfile(
+  token: string,
+  data: UpdateProfileRequest
+): Promise<UpdateProfileResponse> {
+  const url = `${API_BASE_URL}/api/v1/users/me`;
+
+  try {
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    let result: any;
+    try {
+      result = await response.json();
+    } catch {
+      const errorText = await response.text();
+      throw new Error(
+        errorText ||
+          `Update Profile failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    if (!response.ok) {
+      if (result && typeof result === "object" && "success" in result) {
+        const errorMessage =
+          result.error?.message || result.message || `Update failed`;
+        return {
+          success: false,
+          message: errorMessage,
+          error: result.error,
+        } as UpdateProfileResponse;
+      }
+      throw new Error(
+        result?.error?.message ||
+          result?.message ||
+          `Update Profile failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return result as UpdateProfileResponse;
+  } catch (error) {
+    console.error("❌ Update Profile Network Error:", error);
+    const errorMessage = getNetworkErrorMessage(error);
+    throw new Error(`Update Profile failed: ${errorMessage}`);
+  }
+}

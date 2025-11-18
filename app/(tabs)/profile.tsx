@@ -22,6 +22,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -138,6 +139,7 @@ export default function ProfileScreen() {
   const [formLastName, setFormLastName] = useState<string>("");
   const [formLanguage, setFormLanguage] = useState<string>("");
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [languageSearch, setLanguageSearch] = useState("");
   const router = require("expo-router").useRouter();
 
   const fetchProfile = useCallback(async () => {
@@ -446,11 +448,12 @@ export default function ProfileScreen() {
               tint="dark"
               className="overflow-hidden rounded-lg"
             >
-              <View className="p-4 bg-surface">
-                <Text className="mb-1 text-lg font-semibold text">
+              {/* Make modal content dark and primary text white */}
+              <View className="p-4 bg-surface dark:bg-background-dark">
+                <Text className="mb-1 text-lg font-semibold text-white">
                   Why are you deleting your account?
                 </Text>
-                <Text className="mb-4 text-sm text-muted">
+                <Text className="mb-4 text-sm text-white">
                   Please select a reason (required). This will be submitted to
                   help us improve.
                 </Text>
@@ -479,11 +482,11 @@ export default function ProfileScreen() {
                         className={`flex-row items-center justify-between px-4 py-3 rounded-lg mb-2 border ${
                           selected
                             ? "border-red-600 bg-red-600/10"
-                            : "border-transparent bg-surface-muted"
+                            : "border-transparent bg-surface-muted dark:bg-surface-muted-dark"
                         }`}
                       >
                         <Text
-                          className={`${selected ? "text-red-600 font-semibold" : "text"}`}
+                          className={`${selected ? "text-red-600 font-semibold" : "text-white"}`}
                         >
                           {opt.label}
                         </Text>
@@ -509,7 +512,7 @@ export default function ProfileScreen() {
                     multiline
                     numberOfLines={4}
                     editable={!deleting}
-                    className="bg-background p-3 rounded-md text min-h-[96px] mb-3"
+                    className="bg-background p-3 rounded-md text-white min-h-[96px] mb-3"
                   />
                 )}
 
@@ -529,9 +532,9 @@ export default function ProfileScreen() {
                         setDeleteError(null);
                       }
                     }}
-                    className="px-4 py-3 rounded-lg bg-surface-muted"
+                    className="px-4 py-3 rounded-lg bg-surface-muted dark:bg-surface-muted-dark"
                   >
-                    <Text className="text">Cancel</Text>
+                    <Text className="text-white">Cancel</Text>
                   </Pressable>
 
                   <Pressable
@@ -654,18 +657,13 @@ export default function ProfileScreen() {
 
                   <View>
                     <Text className="mb-1 text-sm text-white">Email</Text>
-                    {isEditing ? (
-                      <TextInput
-                        value={formEmail}
-                        onChangeText={setFormEmail}
-                        editable={!updateLoading}
-                        accessibilityLabel="Email input"
-                        keyboardType="email-address"
-                        className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
-                      />
-                    ) : (
-                      <Text className="mb-1 text-white">{profile?.email}</Text>
-                    )}
+                    {/* Email is read-only in the edit flow; only shown for reference */}
+                    <Text
+                      className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
+                      accessibilityLabel="Email"
+                    >
+                      {formEmail || profile?.email}
+                    </Text>
                   </View>
 
                   <View className="flex-row gap-2">
@@ -673,36 +671,24 @@ export default function ProfileScreen() {
                       <Text className="mb-1 text-sm text-white">
                         First name
                       </Text>
-                      {isEditing ? (
-                        <TextInput
-                          value={formFirstName}
-                          onChangeText={setFormFirstName}
-                          editable={!updateLoading}
-                          accessibilityLabel="First name input"
-                          className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
-                        />
-                      ) : (
-                        <Text className="mb-1 text-white">
-                          {profile?.first_name || "—"}
-                        </Text>
-                      )}
+                      {/* First name is not editable here; show read-only value */}
+                      <Text
+                        className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
+                        accessibilityLabel="First name"
+                      >
+                        {formFirstName || profile?.first_name || "—"}
+                      </Text>
                     </View>
 
                     <View className="flex-1">
                       <Text className="mb-1 text-sm text-white">Last name</Text>
-                      {isEditing ? (
-                        <TextInput
-                          value={formLastName}
-                          onChangeText={setFormLastName}
-                          editable={!updateLoading}
-                          accessibilityLabel="Last name input"
-                          className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
-                        />
-                      ) : (
-                        <Text className="mb-1 text-white">
-                          {profile?.last_name || "—"}
-                        </Text>
-                      )}
+                      {/* Last name is not editable here; show read-only value */}
+                      <Text
+                        className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
+                        accessibilityLabel="Last name"
+                      >
+                        {formLastName || profile?.last_name || "—"}
+                      </Text>
                     </View>
                   </View>
 
@@ -725,9 +711,28 @@ export default function ProfileScreen() {
                         </Pressable>
 
                         {showLanguagePicker && (
-                          <View className="mt-2 overflow-hidden border rounded-md max-h-40 border-border bg-surface-muted">
-                            <View>
-                              {LANGUAGES.map((l) => {
+                          <View className="mt-2 overflow-hidden border rounded-md max-h-40 border-border bg-surface-dark">
+                            <TextInput
+                              value={languageSearch}
+                              onChangeText={setLanguageSearch}
+                              placeholder="Search languages..."
+                              placeholderTextColor="#9CA3AF"
+                              className="px-3 py-2 text-white bg-transparent border-b border-border"
+                              accessibilityLabel="Search languages"
+                            />
+
+                            <ScrollView
+                              contentContainerStyle={{ paddingBottom: 8 }}
+                            >
+                              {LANGUAGES.filter((l) => {
+                                const q = languageSearch.trim().toLowerCase();
+                                if (!q) return true;
+                                return (
+                                  l.english.toLowerCase().includes(q) ||
+                                  l.native.toLowerCase().includes(q) ||
+                                  l.code.toLowerCase().includes(q)
+                                );
+                              }).map((l) => {
                                 const selected = l.code === formLanguage;
                                 return (
                                   <Pressable
@@ -735,18 +740,19 @@ export default function ProfileScreen() {
                                     onPress={() => {
                                       setFormLanguage(l.code);
                                       setShowLanguagePicker(false);
+                                      setLanguageSearch("");
                                     }}
                                     className={`px-3 py-2 border-b border-border ${selected ? "bg-primary/10" : ""}`}
                                   >
                                     <Text
-                                      className={`text ${selected ? "text-primary" : "text-white"}`}
+                                      className={`${selected ? "text-primary font-semibold" : "text-white"}`}
                                     >
                                       {l.english} ({l.native})
                                     </Text>
                                   </Pressable>
                                 );
                               })}
-                            </View>
+                            </ScrollView>
                           </View>
                         )}
                       </View>
@@ -878,8 +884,6 @@ export default function ProfileScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
-
-      {/* Sign Out / Delete moved into the profile options grid */}
     </View>
   );
 }

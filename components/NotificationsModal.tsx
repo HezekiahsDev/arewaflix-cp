@@ -69,17 +69,7 @@ export default function NotificationsModal({
                   seen_time: Math.floor(Date.now() / 1000),
                   notification_ids: notificationIds,
                 };
-                // Log the POST request payload
-                console.log(
-                  "POST /api/v1/users/me/notifications payload:",
-                  payload
-                );
                 const resp = await markNotificationsSeen(token, payload);
-                // Log the POST response
-                console.log(
-                  "POST /api/v1/users/me/notifications response:",
-                  resp
-                );
 
                 // Optimistically mark notifications as seen locally
                 setNotifications((prev) =>
@@ -118,9 +108,7 @@ export default function NotificationsModal({
     };
     try {
       setIsMarking(true);
-      console.log("POST /api/v1/users/me/notifications payload:", payload);
       const resp = await markNotificationsSeen(token, payload);
-      console.log("POST /api/v1/users/me/notifications response:", resp);
       setNotifications((prev) => prev.map((it) => ({ ...it, seen: true })));
     } catch (e) {
       console.warn("Failed to mark all notifications seen", e);
@@ -136,9 +124,7 @@ export default function NotificationsModal({
       notification_ids: [item.id],
     };
     try {
-      console.log("POST /api/v1/users/me/notifications payload:", payload);
       const resp = await markNotificationsSeen(token, payload);
-      console.log("POST /api/v1/users/me/notifications response:", resp);
       setNotifications((prev) =>
         prev.map((it) => (it.id === item.id ? { ...it, seen: true } : it))
       );

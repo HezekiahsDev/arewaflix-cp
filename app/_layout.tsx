@@ -33,7 +33,9 @@ export const unstable_settings = {
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Ignore errors if splash screen is already hidden or not available
+});
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -49,18 +51,24 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      // Don't hide splash screen here - let the animated splash handle it
     }
   }, [loaded]);
+
+  const handleSplashFinish = () => {
+    setShowAnimatedSplash(false);
+    // Now hide the native splash screen
+    SplashScreen.hideAsync().catch(() => {
+      // Ignore errors if splash screen is already hidden
+    });
+  };
 
   if (!loaded) {
     return null;
   }
 
   if (showAnimatedSplash) {
-    return (
-      <AnimatedSplashScreen onFinish={() => setShowAnimatedSplash(false)} />
-    );
+    return <AnimatedSplashScreen onFinish={handleSplashFinish} />;
   }
 
   return (

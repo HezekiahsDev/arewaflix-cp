@@ -4,7 +4,7 @@ import { NativeModules, Platform } from "react-native";
 
 const DEFAULT_BASE_URL = "https://api.arewaflix.io";
 
-const API_BASE_URL = getSanitizedBaseUrl(
+export const API_BASE_URL = getSanitizedBaseUrl(
   typeof process !== "undefined" && process.env
     ? process.env.EXPO_PUBLIC_API_BASE_URL
     : undefined
@@ -125,7 +125,9 @@ export interface SignupRequest {
 }
 
 export interface LoginRequest {
-  username: string;
+  // Either `username` or `email` may be provided as the identifier.
+  username?: string;
+  email?: string;
   password: string;
 }
 
@@ -367,7 +369,8 @@ export interface DeleteAccountResponse {
 }
 
 export async function deleteAccount(
-  token: string
+  token: string,
+  reason: string
 ): Promise<DeleteAccountResponse> {
   const url = `${API_BASE_URL}/api/v1/users/me`;
   //console.log("🔐 Delete Account Request:");
@@ -380,6 +383,8 @@ export async function deleteAccount(
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
+      // Match required payload from backend: include confirmation and reason
+      body: JSON.stringify({ confirmation: "delete my account", reason }),
     });
 
     //console.log("Response Status:", response.status);

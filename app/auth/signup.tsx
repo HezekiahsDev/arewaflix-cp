@@ -4,7 +4,7 @@ import { signup } from "@/lib/api/auth";
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -36,6 +36,12 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passwordStrengthLabel, setPasswordStrengthLabel] = useState<
+    "" | "Weak" | "Medium" | "Strong"
+  >("");
+  const [passwordStrengthScore, setPasswordStrengthScore] = useState(0);
+  const [showConfirmLast, setShowConfirmLast] = useState(false);
+  const confirmLastTimeout = React.useRef<number | null>(null);
 
   const scheme = colorScheme ?? "light";
   const logoSource = useMemo(() => {
@@ -46,6 +52,20 @@ export default function SignupScreen() {
 
   const validateEmail = (value: string) => {
     return /\S+@\S+\.\S+/.test(value);
+  };
+
+  const computePasswordStrength = (pw: string) => {
+    let score = 0;
+    if (pw.length >= 8) score += 1;
+    if (/[a-z]/.test(pw)) score += 1;
+    if (/[A-Z]/.test(pw)) score += 1;
+    if (/\d/.test(pw)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+    let label: "" | "Weak" | "Medium" | "Strong" = "";
+    if (score <= 2) label = "Weak";
+    else if (score <= 4) label = "Medium";
+    else label = "Strong";
+    return { score, label };
   };
 
   const onSubmit = useCallback(async () => {
@@ -61,8 +81,8 @@ export default function SignupScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password should be at least 6 characters.");
+    if (password.length < 8 || password.length > 128) {
+      setError("Password should be 8 to 128 characters.");
       return;
     }
 
@@ -112,6 +132,44 @@ export default function SignupScreen() {
       setLoading(false);
     }
   }, [username, email, password, confirmPassword, consent, signIn, router]);
+
+  // update strength as user types
+  useEffect(() => {
+    if (!password) {
+      setPasswordStrengthLabel("");
+      setPasswordStrengthScore(0);
+      return;
+    }
+    const { score, label } = computePasswordStrength(password);
+    setPasswordStrengthScore(score);
+    setPasswordStrengthLabel(label);
+  }, [password]);
+
+  // handle confirm input last-char reveal
+  const onChangeConfirm = (value: string) => {
+    if (confirmLastTimeout.current) {
+      clearTimeout(confirmLastTimeout.current as any);
+      confirmLastTimeout.current = null;
+    }
+    if (!showConfirmPassword && value.length > confirmPassword.length) {
+      setShowConfirmLast(true);
+      confirmLastTimeout.current = window.setTimeout(() => {
+        setShowConfirmLast(false);
+        confirmLastTimeout.current = null;
+      }, 700);
+    }
+    setConfirmPassword(value);
+  };
+
+  // accessibility: announce inline errors to screen readers
+  const inlineAnnouncement =
+    error ||
+    (password && (password.length < 8 || password.length > 128)
+      ? "Password must be 8 to 128 characters."
+      : "") ||
+    (confirmPassword && password !== confirmPassword
+      ? "Passwords do not match."
+      : "");
 
   const navigateToLogin = useCallback(() => {
     router.push("/auth/login");
@@ -178,6 +236,17 @@ export default function SignupScreen() {
                     </View>
                   )}
 
+                  {/* Accessibility live region for inline announcements (screen readers) */}
+                  {inlineAnnouncement ? (
+                    <Text
+                      accessibilityLiveRegion="polite"
+                      accessibilityRole="alert"
+                      style={{ position: "absolute", left: -10000 }}
+                    >
+                      {inlineAnnouncement}
+                    </Text>
+                  ) : null}
+
                   {/* Username */}
                   <View className="mb-4">
                     <TextInput
@@ -209,7 +278,6 @@ export default function SignupScreen() {
                     </Text>
                   </View>
 
-                  {/* Password */}
                   <View className="mb-4">
                     <View className="relative">
                       <TextInput
@@ -231,22 +299,77 @@ export default function SignupScreen() {
                         />
                       </Pressable>
                     </View>
+                    {/* Password strength bar + label */}
+                    {password.length > 0 && (
+                      <View className="mt-2">
+                        <View className="w-full h-2 overflow-hidden bg-gray-200 rounded-full dark:bg-gray-700">
+                          <View
+                            style={{
+                              width: `${(passwordStrengthScore / 5) * 100}%`,
+                              height: 8,
+                              backgroundColor:
+                                passwordStrengthScore <= 2
+                                  ? "#ef4444"
+                                  : passwordStrengthScore <= 4
+                                    ? "#f59e0b"
+                                    : "#10b981",
+                            }}
+                          />
+                        </View>
+                        <Text className="mt-2 text-sm text-muted dark:text-muted-dark">
+                          {passwordStrengthLabel || "Password strength"}
+                        </Text>
+                      </View>
+                    )}
                     <Text className="mt-2 text-sm text-muted dark:text-muted-dark">
                       Password
                     </Text>
+                    {password.length > 0 &&
+                      (password.length < 8 || password.length > 128) && (
+                        <Text className="mt-1 text-sm text-red-600 dark:text-red-400">
+                          Password must be 8 to 128 characters.
+                        </Text>
+                      )}
                   </View>
 
                   {/* Confirm Password */}
                   <View className="mb-4">
                     <View className="relative">
-                      <TextInput
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        placeholder="Confirm password"
-                        placeholderTextColor="#9ca3af"
-                        secureTextEntry={!showConfirmPassword}
-                        className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
-                      />
+                      {showConfirmPassword ? (
+                        <TextInput
+                          value={confirmPassword}
+                          onChangeText={onChangeConfirm}
+                          placeholder="Confirm password"
+                          placeholderTextColor="#9ca3af"
+                          secureTextEntry={false}
+                          className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
+                        />
+                      ) : (
+                        <>
+                          <TextInput
+                            value={confirmPassword}
+                            onChangeText={onChangeConfirm}
+                            keyboardType="default"
+                            secureTextEntry={false}
+                            className="absolute w-full h-full opacity-0"
+                          />
+                          <Pressable
+                            onPress={() => {
+                              /* focus captured by hidden input */
+                            }}
+                            className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base"
+                          >
+                            <Text className="text-base text-text dark:text-text-dark">
+                              {confirmPassword.length === 0
+                                ? ""
+                                : `${"•".repeat(
+                                    Math.max(0, confirmPassword.length - 1)
+                                  )}${showConfirmLast ? confirmPassword[confirmPassword.length - 1] : "•"}`}
+                            </Text>
+                          </Pressable>
+                        </>
+                      )}
+
                       <Pressable
                         onPress={() =>
                           setShowConfirmPassword(!showConfirmPassword)
@@ -263,8 +386,13 @@ export default function SignupScreen() {
                     <Text className="mt-2 text-sm text-muted dark:text-muted-dark">
                       Confirm password
                     </Text>
+                    {confirmPassword.length > 0 &&
+                      password !== confirmPassword && (
+                        <Text className="mt-1 text-sm text-red-600 dark:text-red-400">
+                          Passwords do not match.
+                        </Text>
+                      )}
                   </View>
-
                   {/* Gender */}
                   <View className="mb-4">
                     <Text className="mb-2 text-sm font-medium text-muted dark:text-muted-dark">

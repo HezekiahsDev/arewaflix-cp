@@ -8,10 +8,22 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Image, Pressable, Text, TextInput, View } from "react-native";
+import {
+  AppState,
+  AppStateStatus,
+  Image,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
+import NotificationsModal from "@/components/NotificationsModal";
 import Colors, { ThemeName } from "@/constants/Colors";
 import { AuthUser, useAuth } from "@/context/AuthContext";
+import { getNotifications } from "@/lib/api/notifications";
+
+const NOTIFICATION_POLL_INTERVAL = 60000; // 1 minute in milliseconds
 
 type AppHeaderProps = {
   colorScheme: ThemeName;
@@ -21,7 +33,7 @@ const LOGO_LIGHT = require("../assets/images/af-logo-dark.png");
 const LOGO_DARK = require("../assets/images/af-logo-light.png");
 
 export default function AppHeader({ colorScheme }: AppHeaderProps) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, token } = useAuth();
   const router = useRouter();
 
   const palette = Colors[colorScheme];
@@ -74,9 +86,9 @@ export default function AppHeader({ colorScheme }: AppHeaderProps) {
         <Pressable
           accessibilityRole="button"
           onPress={handleLoginPress}
-          className="rounded-full border border-primary px-4 py-2 dark:border-primary-dark"
+          className="px-4 py-2 border rounded-full border-primary dark:border-primary-dark"
         >
-          <Text className="text-sm font-semibold uppercase tracking-wide text-primary dark:text-primary-dark">
+          <Text className="text-sm font-semibold tracking-wide uppercase text-primary dark:text-primary-dark">
             Login
           </Text>
         </Pressable>
@@ -101,11 +113,78 @@ export default function AppHeader({ colorScheme }: AppHeaderProps) {
     user,
   ]);
 
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Fetch notifications count
+  const fetchNotificationCount = useCallback(async () => {
+    if (!token) {
+      setUnreadCount(0);
+      return;
+    }
+    try {
+      const res = await getNotifications(token);
+      if (res && res.success) {
+        const unread = (res.data || []).filter((n) => !n.seen).length;
+        setUnreadCount(unread);
+      }
+    } catch (e) {
+      // ignore errors for badge
+      console.warn("Failed to fetch notifications", e);
+    }
+  }, [token]);
+
+  // Initial fetch and setup polling interval
+  useEffect(() => {
+    let mounted = true;
+
+    async function initialFetch() {
+      if (mounted) {
+        await fetchNotificationCount();
+      }
+    }
+
+    initialFetch();
+
+    // Setup polling interval (every 1 minute)
+    if (token) {
+      pollIntervalRef.current = setInterval(() => {
+        fetchNotificationCount();
+      }, NOTIFICATION_POLL_INTERVAL);
+    }
+
+    return () => {
+      mounted = false;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [token, fetchNotificationCount]);
+
+  // Listen to app state changes and refetch when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        if (nextAppState === "active") {
+          // App came to foreground, refetch notifications
+          fetchNotificationCount();
+        }
+      }
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fetchNotificationCount]);
+
   return (
-    <View className="border-b border-border bg-background px-4 py-2 dark:border-border-dark dark:bg-background-dark ">
+    <View className="px-4 py-2 border-b border-border bg-background dark:border-border-dark dark:bg-background-dark ">
       {isSearchOpen ? (
         <View className="flex-row items-center gap-3">
-          <View className="flex-1 flex-row items-center rounded-full bg-surface-muted px-3 py-2 dark:bg-surface-muted-dark">
+          <View className="flex-row items-center flex-1 px-3 py-2 rounded-full bg-surface-muted dark:bg-surface-muted-dark">
             <Feather name="search" size={18} color={palette.textMuted} />
             <TextInput
               ref={searchInputRef}
@@ -129,7 +208,7 @@ export default function AppHeader({ colorScheme }: AppHeaderProps) {
                 accessibilityLabel="Clear search query"
                 onPress={handleClearSearch}
                 hitSlop={8}
-                className="ml-2 rounded-full p-1"
+                className="p-1 ml-2 rounded-full"
               >
                 <Feather name="x" size={16} color={palette.textMuted} />
               </Pressable>
@@ -164,16 +243,33 @@ export default function AppHeader({ colorScheme }: AppHeaderProps) {
               onPress={handleSearchPress}
             />
             {isAuthenticated ? (
-              <HeaderIconButton
-                icon="bell"
-                iconColor={palette.text}
-                accessibilityLabel="View notifications"
-              />
+              <View>
+                <HeaderIconButton
+                  icon="bell"
+                  iconColor={palette.text}
+                  accessibilityLabel="View notifications"
+                  onPress={() => setShowNotifications(true)}
+                />
+                {unreadCount > 0 ? (
+                  <View className="absolute -top-0 -right-0 bg-red-500 rounded-full w-5 h-5 items-center justify-center">
+                    <Text className="text-xs text-white">{unreadCount}</Text>
+                  </View>
+                ) : null}
+              </View>
             ) : null}
             {trailingAction}
           </View>
         </View>
       )}
+      <NotificationsModal
+        visible={showNotifications}
+        onClose={() => {
+          setShowNotifications(false);
+          // refresh unread count when closing
+          fetchNotificationCount();
+        }}
+        colorScheme={colorScheme}
+      />
     </View>
   );
 }
@@ -193,7 +289,7 @@ function HeaderIconButton({
 }: HeaderIconButtonProps) {
   return (
     <Pressable
-      className="rounded-full bg-surface-muted p-2 dark:bg-surface-muted-dark"
+      className="p-2 rounded-full bg-surface-muted dark:bg-surface-muted-dark"
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       hitSlop={8}
@@ -219,7 +315,7 @@ function AvatarFallback({
   if (user?.avatar && !user.avatar.endsWith("d-avatar.jpg")) {
     return (
       <Image
-        className="h-full w-full"
+        className="w-full h-full"
         source={{ uri: user.avatar }}
         alt={user.username}
         accessibilityLabel={user.username}
@@ -230,14 +326,14 @@ function AvatarFallback({
   const initial = (user?.username || "U").charAt(0).toUpperCase();
 
   return (
-    <View className="h-full w-full items-center justify-center">
+    <View className="items-center justify-center w-full h-full">
       <LinearGradient
         colors={["#3b82f6", "#8b5cf6"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ borderRadius: 18, width: "100%", height: "100%" }}
       >
-        <View className="flex-1 items-center justify-center">
+        <View className="items-center justify-center flex-1">
           <Text style={{ color }} className="text-sm font-bold">
             {initial}
           </Text>

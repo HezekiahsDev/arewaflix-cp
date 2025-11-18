@@ -5,6 +5,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
 import { useFonts } from "expo-font";
 import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -123,6 +124,32 @@ function RootLayoutNav() {
         }
       } catch (e) {
         console.warn("Push registration failed:", e);
+      }
+    })();
+  }, []);
+
+  // Configure global audio mode so video playback produces sound even when
+  // the device is in silent mode (iOS) and to set sensible interruption
+  // behavior across platforms. This mirrors the configuration used in the
+  // dedicated player screen but must run early so other screens (e.g. Shorts)
+  // can play sound too.
+  useEffect(() => {
+    (async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: false,
+          playThroughEarpieceAndroid: false,
+          interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+          interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+        });
+      } catch (e) {
+        // Non-fatal: if audio mode can't be set we don't want to crash the app
+        // but logging may help during debugging.
+        // eslint-disable-next-line no-console
+        console.warn("Failed to set global audio mode:", e);
       }
     })();
   }, []);

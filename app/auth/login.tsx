@@ -52,16 +52,20 @@ export default function LoginScreen() {
     setError(null);
 
     if (!username || !password) {
-      setError("Please enter both username and password.");
+      setError("Please enter your username or email and password.");
       return;
     }
 
     setLoading(true);
     try {
-      const response = await login({
-        username,
-        password,
-      });
+      const identifier = username.trim();
+      // basic email detection
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+      const payload = isEmail
+        ? { email: identifier, password }
+        : { username: identifier, password };
+
+      const response = await login(payload);
 
       if (response.success && response.data) {
         signIn(response.data.user, response.data.token);
@@ -157,14 +161,14 @@ export default function LoginScreen() {
                     <TextInput
                       value={username}
                       onChangeText={setUsername}
-                      placeholder="Username"
+                      placeholder="Username or email"
                       placeholderTextColor="#9ca3af"
                       autoCapitalize="none"
                       autoFocus
                       className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
                     />
                     <Text className="mt-2 text-sm font-medium text-muted dark:text-muted-dark">
-                      Username
+                      Username or email
                     </Text>
                   </View>
 

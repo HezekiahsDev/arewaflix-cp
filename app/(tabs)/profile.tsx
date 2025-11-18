@@ -18,8 +18,12 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -69,6 +73,13 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<AuthUser | null>(authUser);
   const [loading, setLoading] = useState(!authUser);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [selectedDeleteOption, setSelectedDeleteOption] = useState<
+    string | null
+  >(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = require("expo-router").useRouter();
 
   const fetchProfile = useCallback(async () => {
@@ -116,67 +127,59 @@ export default function ProfileScreen() {
   }, [signOut]);
 
   const handleDeleteAccount = useCallback(() => {
-    Alert.alert(
-      "Delete Account",
-      "Are you sure you want to permanently delete your account? This action cannot be undone.\n\nAll your data including:\n• Profile information\n• Watch history\n• Saved videos\n• Comments\n\nwill be permanently deleted.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            // Second confirmation
-            Alert.alert(
-              "Final Confirmation",
-              "This will permanently delete your account and all associated data. Are you absolutely sure?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Confirm Delete",
-                  style: "destructive",
-                  onPress: async () => {
-                    if (!token) return;
+    // Open the modal to collect a compulsory reason
+    setDeleteReason("");
+    setSelectedDeleteOption(null);
+    setDeleteError(null);
+    setShowDeleteModal(true);
+  }, []);
 
-                    try {
-                      const response = await deleteAccount(token);
-                      if (response.success) {
-                        Alert.alert(
-                          "Account Deleted",
-                          "Your account has been permanently deleted.",
-                          [
-                            {
-                              text: "OK",
-                              onPress: async () => {
-                                await signOut();
-                                router.replace("/");
-                              },
-                            },
-                          ]
-                        );
-                      } else {
-                        Alert.alert(
-                          "Error",
-                          response.message ||
-                            "Failed to delete account. Please try again."
-                        );
-                      }
-                    } catch (error) {
-                      Alert.alert(
-                        "Error",
-                        error instanceof Error
-                          ? error.message
-                          : "Failed to delete account. Please try again."
-                      );
-                    }
-                  },
+  const performDeleteAccount = useCallback(
+    async (reason: string) => {
+      if (!token) return;
+
+      setDeleteError(null);
+      setDeleting(true);
+
+      try {
+        const response = await deleteAccount(token, reason);
+        if (response.success) {
+          Alert.alert(
+            "Account Deleted",
+            "Your account has been permanently deleted.",
+            [
+              {
+                text: "OK",
+                onPress: async () => {
+                  setShowDeleteModal(false);
+                  await signOut();
+                  router.replace("/");
                 },
-              ]
-            );
-          },
-        },
-      ]
-    );
-  }, [token, signOut, router]);
+              },
+            ]
+          );
+        } else {
+          setDeleteError(
+            response.message || "Failed to delete account. Please try again."
+          );
+          Alert.alert(
+            "Error",
+            response.message || "Failed to delete account. Please try again."
+          );
+        }
+      } catch (error: any) {
+        const message = error instanceof Error ? error.message : String(error);
+        setDeleteError(message);
+        Alert.alert(
+          "Error",
+          message || "Failed to delete account. Please try again."
+        );
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [token, signOut, router]
+  );
 
   const handleProfileOption = useCallback((optionId: string) => {
     switch (optionId) {
@@ -188,7 +191,7 @@ export default function ProfileScreen() {
         );
         break;
       case "option-6": // Help & Support
-        WebBrowser.openBrowserAsync("https://arewaflix.com/terms/faqs");
+        WebBrowser.openBrowserAsync("https://arewaflix.com/contact-us");
         break;
       case "option-1": // My Videos
       case "option-2": // Subscriptions
@@ -320,6 +323,168 @@ export default function ProfileScreen() {
           </View>
         )}
       />
+
+      {/* Delete Account Reason Modal (required) */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!deleting) setShowDeleteModal(false);
+        }}
+      >
+        {/* Overlay uses theme-aware overlay token so light/dark modes match the design */}
+        <View className="items-center justify-center flex-1 p-4 bg-overlay dark:bg-overlay-dark">
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            className="w-full max-w-md"
+          >
+            <BlurView
+              intensity={80}
+              tint="dark"
+              className="overflow-hidden rounded-lg"
+            >
+              <View className="p-4 bg-surface">
+                <Text className="mb-1 text-lg font-semibold text">
+                  Why are you deleting your account?
+                </Text>
+                <Text className="mb-4 text-sm text-muted">
+                  Please select a reason (required). This will be submitted to
+                  help us improve.
+                </Text>
+
+                {/* Preset reasons */}
+                <View className="mb-3">
+                  {[
+                    {
+                      id: "no-longer-use",
+                      label: "I no longer want to use this service.",
+                    },
+                    { id: "prefer-other", label: "I prefer another service." },
+                    { id: "privacy", label: "Privacy concerns." },
+                    { id: "notifications", label: "Too many notifications." },
+                    { id: "other", label: "Other (please specify)" },
+                  ].map((opt) => {
+                    const selected = selectedDeleteOption === opt.id;
+                    return (
+                      <Pressable
+                        key={opt.id}
+                        onPress={() => {
+                          setSelectedDeleteOption(opt.id);
+                          if (opt.id !== "other") setDeleteReason(opt.label);
+                          else setDeleteReason("");
+                        }}
+                        className={`flex-row items-center justify-between px-4 py-3 rounded-lg mb-2 border ${
+                          selected
+                            ? "border-red-600 bg-red-600/10"
+                            : "border-transparent bg-surface-muted"
+                        }`}
+                      >
+                        <Text
+                          className={`${selected ? "text-red-600 font-semibold" : "text"}`}
+                        >
+                          {opt.label}
+                        </Text>
+                        {selected ? (
+                          <Ionicons
+                            name="checkmark"
+                            size={18}
+                            color="#dc2626"
+                          />
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* If Other selected, show text input */}
+                {selectedDeleteOption === "other" && (
+                  <TextInput
+                    value={deleteReason}
+                    onChangeText={setDeleteReason}
+                    placeholder="Please tell us why (required)"
+                    placeholderTextColor="#9CA3AF"
+                    multiline
+                    numberOfLines={4}
+                    editable={!deleting}
+                    className="bg-background p-3 rounded-md text min-h-[96px] mb-3"
+                  />
+                )}
+
+                {deleteError ? (
+                  <Text className="mb-2 text-sm text-destructive">
+                    {deleteError}
+                  </Text>
+                ) : null}
+
+                <View className="flex-row justify-end gap-3">
+                  <Pressable
+                    onPress={() => {
+                      if (!deleting) {
+                        setShowDeleteModal(false);
+                        setDeleteReason("");
+                        setSelectedDeleteOption(null);
+                        setDeleteError(null);
+                      }
+                    }}
+                    className="px-4 py-3 rounded-lg bg-surface-muted"
+                  >
+                    <Text className="text">Cancel</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      if (deleting) return;
+
+                      if (!selectedDeleteOption) {
+                        Alert.alert(
+                          "Reason required",
+                          "Please select a reason for deleting your account.",
+                          [{ text: "OK" }]
+                        );
+                        return;
+                      }
+
+                      if (
+                        selectedDeleteOption === "other" &&
+                        (!deleteReason || !deleteReason.trim())
+                      ) {
+                        Alert.alert(
+                          "Reason required",
+                          "Please provide a reason for deleting your account.",
+                          [{ text: "OK" }]
+                        );
+                        return;
+                      }
+
+                      Alert.alert(
+                        "Final Confirmation",
+                        "This will permanently delete your account and all associated data. Are you absolutely sure?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Confirm Delete",
+                            style: "destructive",
+                            onPress: () =>
+                              performDeleteAccount(deleteReason.trim()),
+                          },
+                        ]
+                      );
+                    }}
+                    className="px-4 py-3 bg-red-600 rounded-lg"
+                  >
+                    {deleting ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Text className="font-semibold text-white">Delete</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            </BlurView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       <View className="absolute bottom-0 left-0 right-0 gap-2 p-4">
         {/* Privacy & Terms Links */}

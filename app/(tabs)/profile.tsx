@@ -65,7 +65,53 @@ const profileOptions = [
     description: "FAQs, contact details, and assistance",
     icon: HelpIcon,
   },
+  {
+    id: "option-7",
+    title: "Privacy Policy",
+    description: "View our privacy policy",
+    icon: AboutIcon,
+  },
+  {
+    id: "option-8",
+    title: "Terms of Service",
+    description: "Read our terms of use",
+    icon: AboutIcon,
+  },
+  {
+    id: "option-9",
+    title: "Sign Out",
+    description: "Sign out of your account",
+    // use Ionicons as a component for the icon
+    icon: (props: any) => <Ionicons name="log-out-outline" {...props} />,
+  },
+  {
+    id: "option-10",
+    title: "Delete Account",
+    description: "Permanently delete your account",
+    icon: (props: any) => <Ionicons name="trash-outline" {...props} />,
+  },
 ];
+
+// Major world languages (code, English name, native name)
+const LANGUAGES: Array<{ code: string; english: string; native: string }> = [
+  { code: "en", english: "English", native: "English" },
+  { code: "es", english: "Spanish", native: "Español" },
+  { code: "fr", english: "French", native: "Français" },
+  { code: "ar", english: "Arabic", native: "العربية" },
+  { code: "hi", english: "Hindi", native: "हिन्दी" },
+  { code: "zh", english: "Chinese", native: "中文" },
+  { code: "ja", english: "Japanese", native: "日本語" },
+  { code: "ko", english: "Korean", native: "한국어" },
+  { code: "pt", english: "Portuguese", native: "Português" },
+  { code: "ru", english: "Russian", native: "Русский" },
+  { code: "de", english: "German", native: "Deutsch" },
+];
+
+function getLanguageLabel(code: string) {
+  const found = LANGUAGES.find((l) => l.code === code);
+  if (!found) return code || "Unknown";
+  return `${found.english} (${found.native})`;
+}
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -91,6 +137,7 @@ export default function ProfileScreen() {
   const [formFirstName, setFormFirstName] = useState<string>("");
   const [formLastName, setFormLastName] = useState<string>("");
   const [formLanguage, setFormLanguage] = useState<string>("");
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const router = require("expo-router").useRouter();
 
   const fetchProfile = useCallback(async () => {
@@ -129,6 +176,7 @@ export default function ProfileScreen() {
       setFormEmail(profile.email || "");
       setFormFirstName(profile.first_name || "");
       setFormLastName(profile.last_name || "");
+      // prefer language code if available, otherwise use raw value
       setFormLanguage(profile.language || "");
     }
   }, [profile]);
@@ -213,6 +261,20 @@ export default function ProfileScreen() {
         break;
       case "option-6": // Help & Support
         WebBrowser.openBrowserAsync("https://arewaflix.com/contact-us");
+        break;
+      case "option-7": // Privacy Policy
+        WebBrowser.openBrowserAsync(
+          "https://arewaflix.com/terms/privacy-policy"
+        );
+        break;
+      case "option-8": // Terms of Service
+        WebBrowser.openBrowserAsync("https://arewaflix.com/terms/terms");
+        break;
+      case "option-9": // Sign Out
+        handleSignOut();
+        break;
+      case "option-10": // Delete Account
+        handleDeleteAccount();
         break;
       case "option-1": // My Videos
       case "option-2": // Subscriptions
@@ -308,7 +370,11 @@ export default function ProfileScreen() {
           </Text>
         </LinearGradient>
 
-        <Pressable onPress={() => setShowProfileModal(true)}>
+        <Pressable
+          onPress={() => setShowProfileModal(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Open profile details"
+        >
           <Text className="mt-4 text-2xl font-bold text-center text-blue-500">
             {profile?.username}
           </Text>
@@ -319,6 +385,8 @@ export default function ProfileScreen() {
         {/* Visible View Profile button for discoverability */}
         <Pressable
           onPress={() => setShowProfileModal(true)}
+          accessibilityRole="button"
+          accessibilityLabel="View profile details"
           className="px-4 py-2 mt-3 rounded-md bg-primary"
           android_ripple={{ color: "rgba(255,255,255,0.08)" }}
           style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
@@ -529,6 +597,7 @@ export default function ProfileScreen() {
           if (!updateLoading) {
             setShowProfileModal(false);
             setIsEditing(false);
+            setShowLanguagePicker(false);
             setUpdateError(null);
           }
         }}
@@ -545,54 +614,63 @@ export default function ProfileScreen() {
             >
               <View className="p-4 bg-surface dark:bg-background-dark">
                 <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-lg font-semibold text">Profile</Text>
+                  <Text className="text-lg font-semibold text-white">
+                    Profile
+                  </Text>
                   <Pressable
                     onPress={() => {
                       if (!updateLoading) {
                         setShowProfileModal(false);
                         setIsEditing(false);
+                        setShowLanguagePicker(false);
                         setUpdateError(null);
                       }
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close profile modal"
                   >
-                    <Text className="text-muted">Close</Text>
+                    <Text className="text-white">Close</Text>
                   </Pressable>
                 </View>
 
                 {/* Fields */}
                 <View className="mb-3 space-y-3">
                   <View>
-                    <Text className="mb-1 text-sm text-muted">Username</Text>
+                    <Text className="mb-1 text-sm text-white">Username</Text>
                     {isEditing ? (
                       <TextInput
                         value={formUsername}
                         onChangeText={setFormUsername}
                         editable={!updateLoading}
-                        className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
+                        accessibilityLabel="Username input"
+                        className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
                       />
                     ) : (
-                      <Text className="mb-1 text">{profile?.username}</Text>
+                      <Text className="mb-1 text-white">
+                        {profile?.username}
+                      </Text>
                     )}
                   </View>
 
                   <View>
-                    <Text className="mb-1 text-sm text-muted">Email</Text>
+                    <Text className="mb-1 text-sm text-white">Email</Text>
                     {isEditing ? (
                       <TextInput
                         value={formEmail}
                         onChangeText={setFormEmail}
                         editable={!updateLoading}
+                        accessibilityLabel="Email input"
                         keyboardType="email-address"
-                        className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
+                        className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
                       />
                     ) : (
-                      <Text className="mb-1 text">{profile?.email}</Text>
+                      <Text className="mb-1 text-white">{profile?.email}</Text>
                     )}
                   </View>
 
                   <View className="flex-row gap-2">
                     <View className="flex-1">
-                      <Text className="mb-1 text-sm text-muted">
+                      <Text className="mb-1 text-sm text-white">
                         First name
                       </Text>
                       {isEditing ? (
@@ -600,26 +678,28 @@ export default function ProfileScreen() {
                           value={formFirstName}
                           onChangeText={setFormFirstName}
                           editable={!updateLoading}
-                          className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
+                          accessibilityLabel="First name input"
+                          className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
                         />
                       ) : (
-                        <Text className="mb-1 text">
+                        <Text className="mb-1 text-white">
                           {profile?.first_name || "—"}
                         </Text>
                       )}
                     </View>
 
                     <View className="flex-1">
-                      <Text className="mb-1 text-sm text-muted">Last name</Text>
+                      <Text className="mb-1 text-sm text-white">Last name</Text>
                       {isEditing ? (
                         <TextInput
                           value={formLastName}
                           onChangeText={setFormLastName}
                           editable={!updateLoading}
-                          className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
+                          accessibilityLabel="Last name input"
+                          className="p-3 mb-0 text-white border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
                         />
                       ) : (
-                        <Text className="mb-1 text">
+                        <Text className="mb-1 text-white">
                           {profile?.last_name || "—"}
                         </Text>
                       )}
@@ -627,16 +707,51 @@ export default function ProfileScreen() {
                   </View>
 
                   <View>
-                    <Text className="mb-1 text-sm text-muted">Language</Text>
+                    <Text className="mb-1 text-sm text-white">Language</Text>
                     {isEditing ? (
-                      <TextInput
-                        value={formLanguage}
-                        onChangeText={setFormLanguage}
-                        editable={!updateLoading}
-                        className="p-3 mb-0 rounded-md bg-surface-muted dark:bg-surface-muted-dark text"
-                      />
+                      <View>
+                        <Pressable
+                          onPress={() => setShowLanguagePicker((s) => !s)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Select language"
+                          className="p-3 mb-0 border rounded-md bg-surface-muted dark:bg-surface-muted-dark border-border"
+                          style={{ minHeight: 44, justifyContent: "center" }}
+                        >
+                          <Text className="text-white">
+                            {formLanguage
+                              ? getLanguageLabel(formLanguage)
+                              : "Select language"}
+                          </Text>
+                        </Pressable>
+
+                        {showLanguagePicker && (
+                          <View className="mt-2 overflow-hidden border rounded-md max-h-40 border-border bg-surface-muted">
+                            <View>
+                              {LANGUAGES.map((l) => {
+                                const selected = l.code === formLanguage;
+                                return (
+                                  <Pressable
+                                    key={l.code}
+                                    onPress={() => {
+                                      setFormLanguage(l.code);
+                                      setShowLanguagePicker(false);
+                                    }}
+                                    className={`px-3 py-2 border-b border-border ${selected ? "bg-primary/10" : ""}`}
+                                  >
+                                    <Text
+                                      className={`text ${selected ? "text-primary" : "text-white"}`}
+                                    >
+                                      {l.english} ({l.native})
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        )}
+                      </View>
                     ) : (
-                      <Text className="mb-1 text">
+                      <Text className="mb-1 text-white">
                         {profile?.language || "—"}
                       </Text>
                     )}
@@ -644,9 +759,7 @@ export default function ProfileScreen() {
                 </View>
 
                 {updateError ? (
-                  <Text className="mb-2 text-sm text-destructive">
-                    {updateError}
-                  </Text>
+                  <Text className="mb-2 text-sm text-white">{updateError}</Text>
                 ) : null}
 
                 <View className="flex-row justify-end gap-3">
@@ -661,12 +774,16 @@ export default function ProfileScreen() {
                           setFormFirstName(profile?.first_name || "");
                           setFormLastName(profile?.last_name || "");
                           setFormLanguage(profile?.language || "");
+                          setShowLanguagePicker(false);
                           setIsEditing(false);
                           setUpdateError(null);
                         }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancel editing profile"
+                        accessibilityState={{ disabled: updateLoading }}
                         className="px-4 py-3 rounded-lg bg-surface-muted"
                       >
-                        <Text>Cancel</Text>
+                        <Text className="text-black">Cancel</Text>
                       </Pressable>
 
                       <Pressable
@@ -681,17 +798,19 @@ export default function ProfileScreen() {
 
                           try {
                             const payload: any = {};
-                            // Only include changed fields to be safe
+                            // Only allow username and language to be updated
                             if (formUsername !== profile?.username)
                               payload.username = formUsername;
-                            if (formEmail !== profile?.email)
-                              payload.email = formEmail;
-                            if (formFirstName !== profile?.first_name)
-                              payload.first_name = formFirstName;
-                            if (formLastName !== profile?.last_name)
-                              payload.last_name = formLastName;
                             if (formLanguage !== profile?.language)
                               payload.language = formLanguage;
+
+                            // If nothing changed, short-circuit
+                            if (!Object.keys(payload).length) {
+                              setIsEditing(false);
+                              setShowLanguagePicker(false);
+                              setUpdateLoading(false);
+                              return;
+                            }
 
                             const res = await updateProfile(token, payload);
                             if (res.success && res.data) {
@@ -703,6 +822,7 @@ export default function ProfileScreen() {
                                 // ignore signIn persistence errors
                               }
                               setIsEditing(false);
+                              setShowLanguagePicker(false);
                               Alert.alert(
                                 "Profile Updated",
                                 "Your profile has been updated."
@@ -728,6 +848,9 @@ export default function ProfileScreen() {
                             setUpdateLoading(false);
                           }
                         }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Save profile changes"
+                        accessibilityState={{ disabled: updateLoading }}
                         className="px-4 py-3 rounded-lg bg-primary"
                       >
                         {updateLoading ? (
@@ -740,6 +863,8 @@ export default function ProfileScreen() {
                   ) : (
                     <Pressable
                       onPress={() => setIsEditing(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit profile"
                       className="px-4 py-3 rounded-lg bg-primary"
                     >
                       <Text className="font-semibold text-white">
@@ -754,57 +879,7 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      <View className="absolute bottom-0 left-0 right-0 gap-2 p-4">
-        {/* Privacy & Terms Links */}
-        <View className="flex-row items-center justify-center gap-4 mb-2">
-          <Pressable
-            onPress={() =>
-              WebBrowser.openBrowserAsync(
-                "https://arewaflix.com/terms/privacy-policy"
-              )
-            }
-          >
-            <Text className="text-sm text-blue-400 underline">
-              Privacy Policy
-            </Text>
-          </Pressable>
-          <Text className="text-sm text-gray-500">•</Text>
-          <Pressable
-            onPress={() =>
-              WebBrowser.openBrowserAsync("https://arewaflix.com/terms/terms")
-            }
-          >
-            <Text className="text-sm text-blue-400 underline">
-              Terms of Service
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Sign Out Button */}
-        <Pressable
-          onPress={handleSignOut}
-          className="px-4 py-3 rounded-md"
-          android_ripple={{ color: "rgba(255,255,255,0.1)" }}
-          style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Text className="font-bold text-center text-white">Sign Out</Text>
-        </Pressable>
-
-        {/* Delete Account Button */}
-        <Pressable
-          onPress={handleDeleteAccount}
-          className="px-4 py-3 mb-2 border rounded-md bg-red-600/20 border-red-600/40"
-          android_ripple={{ color: "rgba(220,38,38,0.2)" }}
-          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-        >
-          <View className="flex-row items-center justify-center gap-2">
-            <Ionicons name="trash-outline" size={18} color="#dc2626" />
-            <Text className="font-semibold text-center text-red-600">
-              Delete Account
-            </Text>
-          </View>
-        </Pressable>
-      </View>
+      {/* Sign Out / Delete moved into the profile options grid */}
     </View>
   );
 }

@@ -1,11 +1,4 @@
-import {
-  AboutIcon,
-  HelpIcon,
-  LanguageIcon,
-  SettingsIcon,
-  SubscriptionIcon,
-  VideoIcon,
-} from "@/assets/icons/icon-pack-one";
+import { AboutIcon, HelpIcon } from "@/assets/icons/icon-pack-one";
 import { AuthUser, useAuth } from "@/context/AuthContext";
 import { deleteAccount, getProfile, updateProfile } from "@/lib/api/auth";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,6 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const profileOptions = [
+  /*
   {
     id: "option-1",
     title: "My Videos",
@@ -54,6 +48,7 @@ const profileOptions = [
     description: "Change your preferred language",
     icon: LanguageIcon,
   },
+  */
   {
     id: "option-5",
     title: "About",

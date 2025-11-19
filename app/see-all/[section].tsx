@@ -108,7 +108,14 @@ export default function SeeAllScreen() {
       }
 
       try {
-        const newVideos = await sectionConfig.fetchFunction(page);
+        let newVideos = await sectionConfig.fetchFunction(page);
+
+        // Ensure shorts only show on the 'shorts' section. Some API
+        // endpoints may include mixed results; filter out videos where
+        // `isShort` is true for non-shorts sections.
+        if ((section as SectionType) !== "shorts") {
+          newVideos = newVideos.filter((v) => !v.isShort);
+        }
 
         if (isRefresh || page === 1) {
           setVideos(newVideos);

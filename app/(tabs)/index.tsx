@@ -3,6 +3,7 @@ import {
   EmptyState,
   FeaturedVideoCard,
   SectionHeader,
+  ShortsRail,
   VideoRail,
 } from "@/components/ui/screens/home";
 import { HomeScreenSkeleton } from "@/components/ui/SkeletonLoader";
@@ -77,11 +78,14 @@ export default function HomeScreen() {
         fetchRandomVideos({ limit: 10, page: 1 }),
       ]);
 
-      setFeaturedVideos(defaultVideos);
-      setTrendingVideos(popularVideos);
-      setTopVideos(topRatedVideos);
+      // Ensure shorts only appear in the Shorts section by filtering them
+      // out of the other lists returned by the API (some endpoints may
+      // include shorts via the `isShort` flag).
+      setFeaturedVideos(defaultVideos.filter((v) => !v.isShort));
+      setTrendingVideos(popularVideos.filter((v) => !v.isShort));
+      setTopVideos(topRatedVideos.filter((v) => !v.isShort));
       setShortVideos(shorts);
-      setExploreVideos(randomVideos);
+      setExploreVideos(randomVideos.filter((v) => !v.isShort));
       setError(null);
     } catch (err) {
       setError(getVideosErrorMessage(err));
@@ -130,18 +134,18 @@ export default function HomeScreen() {
 
   if (error && !hasData) {
     return (
-      <View className="flex-1 items-center justify-center bg-background px-6 text-center dark:bg-background-dark">
-        <Text className="text-center text-lg font-semibold text-text dark:text-text-dark">
+      <View className="items-center justify-center flex-1 px-6 text-center bg-background dark:bg-background-dark">
+        <Text className="text-lg font-semibold text-center text-text dark:text-text-dark">
           Unable to reach the video service
         </Text>
-        <Text className="mt-3 text-center text-sm text-muted dark:text-muted-dark">
+        <Text className="mt-3 text-sm text-center text-muted dark:text-muted-dark">
           {error}
         </Text>
         <Pressable
           onPress={() => loadContent(false)}
-          className="mt-6 rounded-full bg-primary px-5 py-2 dark:bg-primary-dark"
+          className="px-5 py-2 mt-6 rounded-full bg-primary dark:bg-primary-dark"
         >
-          <Text className="text-sm font-semibold uppercase tracking-wide text-primary-foreground dark:text-primary-foreground-dark">
+          <Text className="text-sm font-semibold tracking-wide uppercase text-primary-foreground dark:text-primary-foreground-dark">
             Retry
           </Text>
         </Pressable>
@@ -166,12 +170,16 @@ export default function HomeScreen() {
       {featuredVideo ? <FeaturedVideoCard video={featuredVideo} /> : null}
 
       <View className="px-4 pt-0 pb-6">
-        {/* <SectionHeader title="Shorts" />
+        <SectionHeader
+          title="Shorts"
+          ctaLabel="See all"
+          onPress={() => handleSeeAll("shorts")}
+        />
         {shortVideos.length ? (
           <ShortsRail items={shortVideos} />
         ) : (
           <EmptyState message="No shorts available right now." />
-        )} */}
+        )}
 
         <View className="mt-12">
           <SectionHeader
@@ -223,7 +231,7 @@ export default function HomeScreen() {
         </View>
 
         {error ? (
-          <View className="mt-10 rounded-3xl border border-red-500/30 bg-red-500/10 p-5">
+          <View className="p-5 mt-10 border rounded-3xl border-red-500/30 bg-red-500/10">
             <Text className="text-sm font-semibold text-red-500 dark:text-red-400">
               Some sections couldn't load
             </Text>
@@ -232,9 +240,9 @@ export default function HomeScreen() {
             </Text>
             <Pressable
               onPress={() => loadContent(false)}
-              className="mt-4 self-start rounded-full bg-red-500 px-4 py-2 dark:bg-red-400"
+              className="self-start px-4 py-2 mt-4 bg-red-500 rounded-full dark:bg-red-400"
             >
-              <Text className="text-xs font-semibold uppercase tracking-wide text-white">
+              <Text className="text-xs font-semibold tracking-wide text-white uppercase">
                 Try again
               </Text>
             </Pressable>

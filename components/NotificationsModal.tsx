@@ -168,27 +168,58 @@ export default function NotificationsModal({
         style={{ flex: 1 }}
       >
         <View style={{ flex: 1, backgroundColor: palette.surface || "#fff" }}>
-          <View className="flex-row items-center justify-between p-4 border-b border-border dark:border-border-dark">
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 24,
+              paddingTop: insets.top,
+              paddingBottom: 16,
+              backgroundColor: palette.surface,
+            }}
+          >
             <Text
-              className="text-lg font-semibold"
-              style={{ color: palette.text }}
+              style={{
+                color: palette.text,
+                fontSize: 24,
+                fontWeight: "700",
+                letterSpacing: 0.5,
+              }}
             >
               Notifications
             </Text>
-            <View className="flex-row items-center">
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
               {notifications.some((n) => !n.seen) ? (
                 <Pressable
                   onPress={markAllAsRead}
                   disabled={isMarking}
-                  className="px-3 py-1 mr-3 rounded-full bg-surface-muted dark:bg-surface-muted-dark"
+                  style={{
+                    marginRight: 12,
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    backgroundColor: palette.surfaceMuted,
+                    opacity: isMarking ? 0.6 : 1,
+                  }}
                 >
-                  <Text style={{ color: palette.text }}>
-                    {isMarking ? "Marking..." : "Mark all read"}
+                  <Text style={{ color: palette.text, fontSize: 14 }}>
+                    {isMarking ? "..." : "Mark all"}
                   </Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={onClose} className="p-2">
-                <Text style={{ color: palette.textMuted }}>Close</Text>
+              <Pressable
+                onPress={onClose}
+                style={{
+                  padding: 8,
+                  borderRadius: 999,
+                  backgroundColor: palette.surfaceMuted,
+                }}
+                accessibilityLabel="Close notifications"
+              >
+                <Text style={{ color: palette.textMuted, fontSize: 16 }}>
+                  ✕
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -212,45 +243,97 @@ export default function NotificationsModal({
               <FlatList
                 data={showAll ? notifications : notifications.slice(0, 5)}
                 keyExtractor={(item) => String(item.id)}
-                contentContainerStyle={{ paddingBottom: 40 }}
+                contentContainerStyle={{
+                  paddingBottom: 40,
+                  paddingHorizontal: 16,
+                }}
                 renderItem={({ item }) => (
                   <Pressable
                     onPress={() => openNotification(item)}
-                    className="px-4 py-3 border-b border-border dark:border-border-dark"
+                    style={{
+                      marginBottom: 16,
+                      borderRadius: 16,
+                      backgroundColor: item.seen
+                        ? palette.surfaceMuted
+                        : palette.surface,
+                      shadowColor: palette.shadow || "#000",
+                      shadowOpacity: 0.08,
+                      shadowRadius: 8,
+                      elevation: 2,
+                      padding: 18,
+                      flexDirection: "row",
+                      alignItems: "center",
+                    }}
                   >
-                    <View className="flex-row items-start justify-between">
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: palette.text }}>{item.text}</Text>
-                        <Text
-                          style={{ color: palette.textMuted, fontSize: 12 }}
-                        >
-                          {new Date(item.time * 1000).toLocaleString()}
-                        </Text>
-                      </View>
-                      {!item.seen ? (
-                        <View className="flex-row items-center ml-3">
-                          <View className="w-3 h-3 bg-red-500 rounded-full" />
-                          <Pressable
-                            onPress={() => markSingleAsRead(item)}
-                            className="px-2 py-1 ml-3 rounded-full bg-surface-muted dark:bg-surface-muted-dark"
-                          >
-                            <Text style={{ color: palette.text, fontSize: 12 }}>
-                              Mark
-                            </Text>
-                          </Pressable>
-                        </View>
-                      ) : null}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          color: palette.text,
+                          fontSize: 16,
+                          fontWeight: item.seen ? "400" : "600",
+                        }}
+                      >
+                        {item.text}
+                      </Text>
+                      <Text
+                        style={{
+                          color: palette.textMuted,
+                          fontSize: 12,
+                          marginTop: 6,
+                        }}
+                      >
+                        {new Date(item.time * 1000).toLocaleString()}
+                      </Text>
                     </View>
+                    {!item.seen ? (
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginLeft: 12,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 8,
+                            height: 8,
+                            backgroundColor: "#ef4444",
+                            borderRadius: 4,
+                            marginRight: 8,
+                          }}
+                        />
+                        <Pressable
+                          onPress={() => markSingleAsRead(item)}
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 999,
+                            backgroundColor: palette.surfaceMuted,
+                          }}
+                        >
+                          <Text style={{ color: palette.text, fontSize: 12 }}>
+                            ✓
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
                   </Pressable>
                 )}
                 ListFooterComponent={() =>
                   !showAll && notifications.length > 5 ? (
-                    <View className="items-center p-4">
+                    <View style={{ alignItems: "center", padding: 16 }}>
                       <Pressable
                         onPress={() => setShowAll(true)}
-                        className="px-4 py-2 rounded-full bg-surface-muted dark:bg-surface-muted-dark"
+                        style={{
+                          paddingHorizontal: 24,
+                          paddingVertical: 10,
+                          borderRadius: 999,
+                          backgroundColor: palette.surfaceMuted,
+                        }}
                       >
-                        <Text style={{ color: palette.text }}>Show all</Text>
+                        <Text style={{ color: palette.text, fontSize: 15 }}>
+                          Show all
+                        </Text>
                       </Pressable>
                     </View>
                   ) : null

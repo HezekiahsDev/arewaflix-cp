@@ -22,6 +22,7 @@ import {
 } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -215,6 +216,33 @@ export default function PlayerScreen() {
         // Failed to configure audio mode
       }
     })();
+  }, []);
+
+  // Lock orientation to portrait when player loads, restore to default on unmount
+  useEffect(() => {
+    (async () => {
+      try {
+        // Lock to portrait initially
+        await ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.PORTRAIT_UP
+        );
+      } catch (error) {
+        // Failed to lock orientation - not critical
+      }
+    })();
+
+    return () => {
+      // Cleanup: restore to default orientation when leaving player
+      (async () => {
+        try {
+          await ScreenOrientation.lockAsync(
+            ScreenOrientation.OrientationLock.PORTRAIT_UP
+          );
+        } catch (error) {
+          // Failed to restore orientation - not critical
+        }
+      })();
+    };
   }, []);
 
   useEffect(() => {
@@ -789,11 +817,29 @@ export default function PlayerScreen() {
   }, [isLoaded, isPlaying, registerInteraction]);
 
   const handleFullscreenUpdate = useCallback(
-    (event: { fullscreenUpdate: number }) => {
+    async (event: { fullscreenUpdate: number }) => {
       // 0 = will dismiss, 1 = will present, 2 = did dismiss, 3 = did present
       const isEnteringOrInFullscreen =
         event.fullscreenUpdate === 1 || event.fullscreenUpdate === 3;
       setIsFullscreen(isEnteringOrInFullscreen);
+
+      // Manage screen orientation based on fullscreen state
+      try {
+        if (event.fullscreenUpdate === 1 || event.fullscreenUpdate === 3) {
+          // Entering or in fullscreen - unlock orientation to allow landscape
+          await ScreenOrientation.unlockAsync();
+        } else if (
+          event.fullscreenUpdate === 0 ||
+          event.fullscreenUpdate === 2
+        ) {
+          // Exiting fullscreen - lock to portrait
+          await ScreenOrientation.lockAsync(
+            ScreenOrientation.OrientationLock.PORTRAIT_UP
+          );
+        }
+      } catch (error) {
+        // Failed to change orientation - not critical
+      }
     },
     []
   );

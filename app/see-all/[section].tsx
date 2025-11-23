@@ -158,6 +158,18 @@ export default function SeeAllScreen() {
   const handleVideoPress = useCallback(
     (video: Video) => {
       try {
+        // If it's a short, navigate to the shorts screen
+        if (video.isShort) {
+          router.push({
+            pathname: "/(tabs)/shorts",
+            params: {
+              videoId: video.id,
+            },
+          });
+          return;
+        }
+
+        // Regular video handling
         const media = resolveVideoMedia(video);
 
         if (media.kind === "direct") {
@@ -206,20 +218,20 @@ export default function SeeAllScreen() {
             height: CARD_HEIGHT,
             margin: CARD_MARGIN / 2,
           }}
-          className="overflow-hidden rounded-2xl bg-card shadow-sm dark:bg-card-dark"
+          className="overflow-hidden shadow-sm rounded-2xl bg-card dark:bg-card-dark"
         >
           <Image
             source={{ uri: item.imageUrl }}
             style={{ width: "100%", height: THUMBNAIL_HEIGHT }}
           />
           {durationLabel ? (
-            <View className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1">
+            <View className="absolute px-2 py-1 rounded-full right-2 top-2 bg-black/70">
               <Text className="text-[11px] font-semibold uppercase tracking-wide text-white">
                 {durationLabel}
               </Text>
             </View>
           ) : null}
-          <View className="flex-1 justify-between gap-1 px-3 py-3">
+          <View className="justify-between flex-1 gap-1 px-3 py-3">
             <Text
               className="text-sm font-semibold text-text dark:text-text-dark"
               numberOfLines={2}
@@ -227,7 +239,7 @@ export default function SeeAllScreen() {
               {item.title}
             </Text>
             {authorLabel ? (
-              <Text className="text-xs uppercase tracking-wide text-muted dark:text-muted-dark">
+              <Text className="text-xs tracking-wide uppercase text-muted dark:text-muted-dark">
                 {authorLabel}
               </Text>
             ) : null}
@@ -250,19 +262,19 @@ export default function SeeAllScreen() {
     if (loading) return null;
 
     return (
-      <View className="flex-1 items-center justify-center px-6 py-20">
-        <Text className="text-center text-lg font-semibold text-text dark:text-text-dark">
+      <View className="items-center justify-center flex-1 px-6 py-20">
+        <Text className="text-lg font-semibold text-center text-text dark:text-text-dark">
           No videos found
         </Text>
-        <Text className="mt-3 text-center text-sm text-muted dark:text-muted-dark">
+        <Text className="mt-3 text-sm text-center text-muted dark:text-muted-dark">
           {error || "Try refreshing to load videos"}
         </Text>
         {error && (
           <Pressable
             onPress={handleRefresh}
-            className="mt-6 rounded-full bg-primary px-5 py-2 dark:bg-primary-dark"
+            className="px-5 py-2 mt-6 rounded-full bg-primary dark:bg-primary-dark"
           >
-            <Text className="text-sm font-semibold uppercase tracking-wide text-primary-foreground dark:text-primary-foreground-dark">
+            <Text className="text-sm font-semibold tracking-wide uppercase text-primary-foreground dark:text-primary-foreground-dark">
               Retry
             </Text>
           </Pressable>
@@ -296,7 +308,7 @@ export default function SeeAllScreen() {
       />
       <View className="flex-1 bg-background dark:bg-background-dark">
         {loading && videos.length === 0 ? (
-          <View className="flex-1 items-center justify-center">
+          <View className="items-center justify-center flex-1">
             <ActivityIndicator size="large" color={theme.primary} />
             <Text className="mt-4 text-sm text-muted dark:text-muted-dark">
               Loading videos...

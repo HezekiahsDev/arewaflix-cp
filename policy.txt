@@ -1,0 +1,138 @@
+ArewaFlix ("we", "our", or "us") is a movie streaming platform run by Abnur Enterrainment. This Privacy Policy explains how we collect, use, disclose, and protect your information when you use our services.
+
+By accessing ArewaFlix, you agree to the collection and use of information according to this Policy.
+
+1. Information We Collect
+
+We may collect the following types of personal and technical data:
+
+1.1 Personal Information
+
+- Full Name
+- Email Address
+- Phone Number
+- Gender
+- Profile photo (optional)
+
+
+1.2 Automatically Collected Data
+
+- Device information (model, OS version)
+- IP address
+- App usage analytics
+- Streaming performance metrics (e.g., buffering, network speed)
+
+1.3 Content Interaction
+
+- Movies watched or downloaded
+- Search history
+- User preference selections
+
+1.4 Device Identifiers and Fingerprinting
+
+- What we collect: We may generate and store a persistent, installation-specific device fingerprint composed of non-personally-identifying device attributes (for example: platform, OS version, and an installation identifier provided by the runtime) combined with a random installation-specific suffix. We may also collect the Expo push token (when you opt in to push notifications) and other device identifiers needed to deliver services.
+
+- Why we collect it: Device identifiers and fingerprints are used solely for service operation purposes such as fraud prevention (to detect duplicated or automated accounts and views), improving service reliability, and delivering push notifications. We do NOT use the fingerprint for advertising or cross-app tracking unless we obtain your explicit consent.
+
+- Storage and protection: Fingerprints are stored locally in the app and may be transmitted to our servers for the limited purposes described above. We protect this data using industry-standard measures.
+
+2. How We Use Your Information
+
+We use the data we collect to:
+
+- Provide and maintain our service
+- Manage user accounts and subscriptions
+- Improve streaming performance and content recommendations
+- Detect and prevent fraud and unauthorized access
+- Send notifications about new content, updates, or offers
+- Comply with legal and regulatory requirements
+
+- Push notifications: If you permit push notifications, we collect and use an Expo push token to deliver notifications to your device. We will only register and send push tokens if you have granted permission via the device OS prompt and (where implemented) your in-app notification preference. You can disable push notifications at any time via your device settings or the app's notification controls.
+
+3. Sharing of Information
+
+We do not sell personal information.
+
+Who we share data with
+
+- Service providers required to operate the service: cloud hosting, content delivery (CDN), and payment processors (e.g., Airtime, DCB/DST, card payments). These providers process data on our behalf and under our instructions.
+- Push delivery providers and notification platforms only when you opt in to push notifications (we send the Expo push token so messages can be delivered to your device).
+- Regulatory bodies, when required by law.
+
+We do not embed or rely on third-party content providers for video hosting or content moderation — all content available in the app is published and managed by ArewaFlix. We may share aggregated or pseudonymized analytics (for example, view counts) with partners for reporting purposes but we do not sell personal data.
+
+Device identifiers sharing
+
+We may share hashed or pseudonymized device identifiers with third-party providers that operate on our behalf (for push delivery, analytics, or fraud-detection). We do not share raw device identifiers for advertising or cross-app tracking without your explicit consent.
+
+4. International Data Transfers
+
+Your data may be processed on servers outside your country. We apply safeguards compliant with applicable data protection laws (e.g., Standard Contractual Clauses) to protect your rights.
+
+5. Data Storage and Security
+
+We use industry-standard encryption:
+
+- TLS for data in transit
+- Encrypted databases for data at rest
+- Regular server audits and intrusion detection
+- Strict access control and monitoring
+
+While we strive to protect your data, no system is completely secure.
+
+6. Data Retention
+
+We keep your information only as long as necessary for:
+
+- Service delivery
+- Legal, regulatory, and accounting obligations
+
+- Device identifiers and analytics: By default, device fingerprints and related analytics data are retained for up to 12 months to support fraud prevention and service operations. Where you request deletion of your account or personal data, we will delete identifiers tied to your account within 30 days unless retention is required for legal reasons.
+
+7. Children’s Privacy
+
+ArewaFlix is not intended for children under 13. We do not knowingly collect data from minors below this age.
+
+8. Your Rights
+
+Depending on your location, you may have rights to:
+
+- Access your data
+- Correct or update information
+- Request deletion
+- Restrict or object to processing
+- Withdraw consent at any time
+
+To exercise these rights, contact us at:
+
+privacy@arewaflix.com
+
+Your Choices
+
+- Disable push notifications: Turn off notifications for Arewaflix in your device settings or use the app's notification controls.
+- Delete account and data: Request account deletion via support or privacy@arewaflix.com. We will remove associated identifiers as described in the Retention section.
+
+9. Cookies and Tracking Technologies
+
+We do not use cookies in the ArewaFlix mobile app. The app does use local storage and device identifiers internally to support features such as remembering your session, counting video views, and supporting analytics. When used, device identifiers are pseudonymized and used for analytics (for example, counting views per video) and fraud prevention. You can control tracking and analytics in the app's Privacy settings when available or via your device settings.
+
+10. Links to Third-Party Services
+
+We do not embed third-party content or services inside the ArewaFlix app. All primary content is regulated and published by ArewaFlix. If we include external links (for example, to support resources), they will be clearly labeled; such links are not used for tracking or analytics purposes by default and are outside the scope of this policy.
+
+11. Policy Updates
+
+We may update this Privacy Policy to reflect operational or regulatory changes. Updates will be posted with a new "Last Updated" date.
+
+12. Contact Us
+
+For any questions, complaints, or rights requests:
+
+Arewaflix Limited.
+Email: support@arewaflix.com  
+
+Kano, Nigeria
+
+Privacy contact and App Store compliance
+
+- For app store review or privacy inquiries, contact privacy@arewaflix.com.

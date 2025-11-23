@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import { AVPlaybackStatus, Video as ExpoVideo, ResizeMode } from "expo-av";
+import { useLocalSearchParams } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -1090,6 +1091,7 @@ export default function ShortsScreen() {
   const { user, token } = useAuth();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const params = useLocalSearchParams<{ videoId?: string }>();
 
   const [shorts, setShorts] = useState<PlayableShort[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1113,6 +1115,7 @@ export default function ShortsScreen() {
   const COMMENTS_PAGE_LIMIT = 20;
 
   const requestRef = useRef<AbortController | null>(null);
+  const flatListRef = useRef<FlatList>(null);
 
   // Handle opening comment modal
   const handleOpenComments = useCallback(
@@ -1317,6 +1320,25 @@ export default function ShortsScreen() {
       requestRef.current?.abort();
     };
   }, [loadShorts]);
+
+  // Handle scrolling to specific video when videoId param is provided
+  useEffect(() => {
+    if (params.videoId && shorts.length > 0) {
+      const targetIndex = shorts.findIndex(
+        (short) => short.video.id === params.videoId
+      );
+      if (targetIndex !== -1 && flatListRef.current) {
+        // Small delay to ensure FlatList is ready
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: targetIndex,
+            animated: false,
+          });
+          setActiveIndex(targetIndex);
+        }, 100);
+      }
+    }
+  }, [params.videoId, shorts]);
 
   const handleRefresh = useCallback(() => {
     void loadShorts(true);
@@ -1593,6 +1615,7 @@ export default function ShortsScreen() {
     >
       {/* Dev-only overlay removed — was showing active index and source URI */}
       <FlatList
+        ref={flatListRef}
         data={shorts}
         renderItem={renderItem}
         keyExtractor={(item) => item.video.id}
@@ -1613,6 +1636,16 @@ export default function ShortsScreen() {
         maxToRenderPerBatch={2}
         windowSize={5}
         removeClippedSubviews={true}
+        onScrollToIndexFailed={(info) => {
+          // Fallback: scroll to offset if index fails
+          const wait = new Promise((resolve) => setTimeout(resolve, 500));
+          wait.then(() => {
+            flatListRef.current?.scrollToIndex({
+              index: info.index,
+              animated: false,
+            });
+          });
+        }}
       />
 
       {/* Comment Modal */}

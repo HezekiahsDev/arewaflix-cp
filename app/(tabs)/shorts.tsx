@@ -137,6 +137,9 @@ type ShortPlayerCardProps = {
   topInset: number;
   bottomInset: number;
   onOpenComments: (videoId: string) => void;
+  onReport: (videoId: string) => void;
+  onToggleSave: (videoId: string, isSaved: boolean) => void;
+  isSaved: boolean;
 };
 
 function formatTime(millis: number): string {
@@ -221,6 +224,53 @@ const VolumeOffIcon = React.memo(
       <Path d="M11 5L6 9H2v6h4l5 4V5z" fill={color} />
       <Path
         d="M23 3L3 21"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+);
+
+const ReportIcon = React.memo(
+  ({
+    size = IconDefaults.size,
+    color = IconDefaults.color,
+  }: {
+    size?: number;
+    color?: string;
+  }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+        fill={color}
+      />
+      <Path d="M12 9v4" stroke="#000" strokeWidth={2} strokeLinecap="round" />
+      <Path
+        d="M12 17h.01"
+        stroke="#000"
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </Svg>
+  )
+);
+
+const SaveIcon = React.memo(
+  ({
+    size = IconDefaults.size,
+    color = IconDefaults.color,
+    filled = false,
+  }: {
+    size?: number;
+    color?: string;
+    filled?: boolean;
+  }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"
+        fill={filled ? color : "none"}
         stroke={color}
         strokeWidth={2}
         strokeLinecap="round"
@@ -455,6 +505,9 @@ const ShortPlayerCard = React.memo(
     topInset,
     bottomInset,
     onOpenComments,
+    onReport,
+    onToggleSave,
+    isSaved,
   }: ShortPlayerCardProps) {
     const { user, token } = useAuth();
     const videoRef = useRef<ExpoVideo | null>(null);
@@ -1057,6 +1110,26 @@ const ShortPlayerCard = React.memo(
             </Text>
           </Pressable>
 
+          <Pressable
+            style={{ alignItems: "center", marginBottom: 18 }}
+            onPress={() => onToggleSave(videoId, isSaved)}
+          >
+            <SaveIcon size={28} color="#fff" filled={isSaved} />
+            <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
+              Save
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={{ alignItems: "center", marginBottom: 18 }}
+            onPress={() => onReport(videoId)}
+          >
+            <ReportIcon size={26} color="#fff" />
+            <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
+              Report
+            </Text>
+          </Pressable>
+
           {/* mute control moved to top-right */}
         </View>
 
@@ -1112,6 +1185,19 @@ export default function ShortsScreen() {
   const [commentsTotalPages, setCommentsTotalPages] = useState(1);
   const [isLoadingMoreComments, setIsLoadingMoreComments] = useState(false);
 
+  // Report modal state
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportingVideoId, setReportingVideoId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [selectedReportOption, setSelectedReportOption] = useState<
+    string | null
+  >(null);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  // Saved videos state (local for demo - should be persisted)
+  const [savedVideoIds, setSavedVideoIds] = useState<Set<string>>(new Set());
+
   const COMMENTS_PAGE_LIMIT = 20;
 
   const requestRef = useRef<AbortController | null>(null);
@@ -1151,6 +1237,32 @@ export default function ShortsScreen() {
     setCommentDraft("");
     setCommentsError(null);
   }, []);
+
+  // Handle opening report modal
+  const handleReport = useCallback((videoId: string) => {
+    setReportingVideoId(videoId);
+    setReportModalVisible(true);
+    setReportReason("");
+    setSelectedReportOption(null);
+    setReportError(null);
+  }, []);
+
+  // Handle toggle save
+  const handleToggleSave = useCallback(
+    (videoId: string, currentlySaved: boolean) => {
+      setSavedVideoIds((prev) => {
+        const newSet = new Set(prev);
+        if (currentlySaved) {
+          newSet.delete(videoId);
+        } else {
+          newSet.add(videoId);
+        }
+        return newSet;
+      });
+      // TODO: Implement API call to save/unsave video
+    },
+    []
+  );
 
   // Handle posting comment
   const handleSubmitComment = useCallback(async () => {
@@ -1365,6 +1477,9 @@ export default function ShortsScreen() {
           topInset={insets.top}
           bottomInset={insets.bottom}
           onOpenComments={handleOpenComments}
+          onReport={handleReport}
+          onToggleSave={handleToggleSave}
+          isSaved={savedVideoIds.has(item.video.id)}
         />
       </View>
     ),
@@ -1375,6 +1490,9 @@ export default function ShortsScreen() {
       isFocused,
       itemHeight,
       handleOpenComments,
+      handleReport,
+      handleToggleSave,
+      savedVideoIds,
     ]
   );
 
@@ -1837,6 +1955,232 @@ export default function ShortsScreen() {
             </View>
           )}
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Report Modal */}
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isSubmittingReport) setReportModalVisible(false);
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 400,
+              backgroundColor: "#1a1a1a",
+              borderRadius: 16,
+              padding: 24,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 20,
+              }}
+            >
+              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "600" }}>
+                Report Content
+              </Text>
+              <Pressable
+                onPress={() => {
+                  if (!isSubmittingReport) {
+                    setReportModalVisible(false);
+                    setReportReason("");
+                    setSelectedReportOption(null);
+                    setReportError(null);
+                  }
+                }}
+                style={{ padding: 4 }}
+              >
+                <Ionicons name="close" size={24} color="#fff" />
+              </Pressable>
+            </View>
+
+            <Text style={{ color: "#ccc", fontSize: 14, marginBottom: 16 }}>
+              Why are you reporting this content?
+            </Text>
+
+            {[
+              { id: "spam", label: "Spam or misleading" },
+              { id: "harassment", label: "Harassment or bullying" },
+              { id: "hate", label: "Hate speech" },
+              { id: "violence", label: "Violence or dangerous acts" },
+              { id: "sexual", label: "Sexual content" },
+              { id: "copyright", label: "Copyright infringement" },
+              { id: "other", label: "Other (please specify)" },
+            ].map((option) => {
+              const selected = selectedReportOption === option.id;
+              return (
+                <Pressable
+                  key={option.id}
+                  onPress={() => {
+                    setSelectedReportOption(option.id);
+                    if (option.id !== "other") setReportReason(option.label);
+                    else setReportReason("");
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    marginVertical: 4,
+                    borderRadius: 8,
+                    backgroundColor: selected
+                      ? "rgba(255, 59, 48, 0.1)"
+                      : "rgba(255,255,255,0.05)",
+                    borderWidth: 1,
+                    borderColor: selected ? "#ff3b30" : "transparent",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: selected ? "#ff6b6b" : "#fff",
+                      fontSize: 14,
+                    }}
+                  >
+                    {option.label}
+                  </Text>
+                  {selected && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color="#ff3b30"
+                    />
+                  )}
+                </Pressable>
+              );
+            })}
+
+            {selectedReportOption === "other" && (
+              <TextInput
+                value={reportReason}
+                onChangeText={setReportReason}
+                placeholder="Please specify..."
+                placeholderTextColor="#666"
+                style={{
+                  borderWidth: 1,
+                  borderColor: "#333",
+                  borderRadius: 8,
+                  padding: 12,
+                  color: "#fff",
+                  backgroundColor: "rgba(255,255,255,0.05)",
+                  marginTop: 12,
+                  minHeight: 80,
+                  textAlignVertical: "top",
+                }}
+                multiline
+                numberOfLines={3}
+              />
+            )}
+
+            {reportError && (
+              <Text style={{ color: "#ff6b6b", fontSize: 14, marginTop: 12 }}>
+                {reportError}
+              </Text>
+            )}
+
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 24 }}>
+              <Pressable
+                onPress={() => {
+                  if (!isSubmittingReport) {
+                    setReportModalVisible(false);
+                    setReportReason("");
+                    setSelectedReportOption(null);
+                    setReportError(null);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  backgroundColor: "rgba(255,255,255,0.1)",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
+                >
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  if (
+                    !selectedReportOption ||
+                    !reportReason.trim() ||
+                    isSubmittingReport
+                  )
+                    return;
+
+                  setIsSubmittingReport(true);
+                  setReportError(null);
+
+                  try {
+                    // TODO: Implement API call to submit report
+                    // await submitReport(reportingVideoId, reportReason, selectedReportOption);
+
+                    // Simulate API call
+                    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                    setReportModalVisible(false);
+                    setReportReason("");
+                    setSelectedReportOption(null);
+                    setReportError(null);
+
+                    // Show success feedback (could be a toast)
+                    alert(
+                      "Report submitted. Thank you for helping keep our community safe."
+                    );
+                  } catch (error) {
+                    setReportError(
+                      "Failed to submit report. Please try again."
+                    );
+                  } finally {
+                    setIsSubmittingReport(false);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  backgroundColor:
+                    !selectedReportOption ||
+                    !reportReason.trim() ||
+                    isSubmittingReport
+                      ? "rgba(255, 59, 48, 0.3)"
+                      : "#ff3b30",
+                  alignItems: "center",
+                }}
+                disabled={
+                  !selectedReportOption ||
+                  !reportReason.trim() ||
+                  isSubmittingReport
+                }
+              >
+                <Text
+                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
+                >
+                  {isSubmittingReport ? "Submitting..." : "Report"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );

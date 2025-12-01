@@ -1,8 +1,10 @@
 import { useColorScheme } from "@/components/useColorScheme";
 import Colors from "@/constants/Colors";
+import { useAuth } from "@/context/AuthContext";
 import {
   fetchFilteredVideos,
   fetchRandomVideos,
+  fetchSavedVideos,
   fetchShorts,
   getVideosErrorMessage,
   Video,
@@ -38,7 +40,7 @@ const THUMBNAIL_HEIGHT = 160;
 
 const ITEMS_PER_PAGE = 20;
 
-type SectionType = "trending" | "top" | "explore" | "shorts";
+type SectionType = "trending" | "top" | "explore" | "shorts" | "saved";
 
 type SectionConfig = {
   title: string;
@@ -48,6 +50,7 @@ type SectionConfig = {
 export default function SeeAllScreen() {
   const { section } = useLocalSearchParams<{ section: string }>();
   const router = useRouter();
+  const { token } = useAuth();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const theme = colorScheme === "dark" ? Colors.dark : Colors.light;
@@ -68,6 +71,15 @@ export default function SeeAllScreen() {
         title: "Trending Videos",
         fetchFunction: (page: number) =>
           fetchFilteredVideos("popular", { limit: ITEMS_PER_PAGE, page }),
+      },
+      saved: {
+        title: "Saved Videos",
+        fetchFunction: (page: number) =>
+          fetchSavedVideos({
+            limit: ITEMS_PER_PAGE,
+            page,
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          }),
       },
       top: {
         title: "Top Videos",
@@ -93,7 +105,44 @@ export default function SeeAllScreen() {
           fetchRandomVideos({ limit: ITEMS_PER_PAGE, page }),
       }
     );
-  }, [section]);
+  }, [section, token]);
+
+  // If this is the `saved` section and the user is not authenticated,
+  // show a friendly prompt to login instead of attempting the request
+  if ((section as SectionType) === "saved" && !token) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            title: "Saved Videos",
+            headerShown: true,
+          }}
+        />
+        <View className="items-center justify-center flex-1 p-6 bg-background dark:bg-background-dark">
+          <Text className="mb-4 text-lg font-semibold text-center text-white">
+            Saved videos are available when you sign in.
+          </Text>
+          <Text className="mb-6 text-sm text-center text-muted dark:text-muted-dark">
+            Sign in to view your saved videos.
+          </Text>
+          <View className="flex-row gap-3">
+            <Pressable
+              onPress={() => router.push("/auth/login")}
+              className="px-4 py-3 rounded-md bg-primary"
+            >
+              <Text className="text-white">Sign In</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.back()}
+              className="px-4 py-3 rounded-md bg-surface-muted"
+            >
+              <Text>Back</Text>
+            </Pressable>
+          </View>
+        </View>
+      </>
+    );
+  }
 
   const loadVideos = useCallback(
     async (page: number, isRefresh = false) => {

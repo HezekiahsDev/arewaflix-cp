@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import { AVPlaybackStatus, Video as ExpoVideo, ResizeMode } from "expo-av";
 import { useLocalSearchParams } from "expo-router";
 import React, {
   useCallback,
@@ -11,38 +10,32 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  Animated,
   FlatList,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
 
+import ReportModal from "@/components/ReportModal";
+import ShortPlayerCard from "@/components/ShortPlayerCard";
+import ShortsCommentModal from "@/components/ShortsCommentModal";
 import { useAuth } from "@/context/AuthContext";
+// comment modal logic moved to components/ShortsCommentModal.tsx
 import {
-  VideoComment,
-  fetchUserReaction,
-  fetchVideoComments,
-  fetchVideoLikes,
-  postVideoComment,
-  postVideoReaction,
+  fetchVideoSaved,
+  saveVideo,
+  unsaveVideo,
 } from "@/lib/api/video-interactions";
 import {
   Video as VideoModel,
   fetchShorts,
   getVideosErrorMessage,
 } from "@/lib/api/videos";
-import { getDurationLabel } from "@/lib/videos/formatters";
 import {
   VideoMedia,
   collectMediaCandidates,
@@ -56,36 +49,7 @@ const BASE_VIDEO_URL = "https://arewaflix.s3.us-east-005.backblazeb2.com/";
  * Resolve avatar URL using CDN or API base URL
  * Similar to video thumbnail resolution
  */
-function resolveAvatarUri(avatar?: string): string | undefined {
-  if (!avatar) {
-    return undefined;
-  }
-
-  const trimmed = avatar.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  // If already an absolute URL, return as-is
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  // Try CDN first (avatars might be on CDN)
-  const cdnBase = BASE_VIDEO_URL.endsWith("/")
-    ? BASE_VIDEO_URL
-    : `${BASE_VIDEO_URL}/`;
-  const sanitized = trimmed.replace(/^\/+/, "");
-
-  // Check if this looks like a CDN path (contains "upload/photos")
-  if (sanitized.includes("upload/photos")) {
-    return `${cdnBase}${sanitized}`;
-  }
-
-  // Fallback to API base URL for other paths
-  const resolvedUrl = `${API_BASE_URL}/${sanitized}`;
-  return resolvedUrl;
-}
+// Avatar resolution logic moved into comment modal component
 
 type ShortMedia = { kind: "video"; uri: string } | { kind: "none" };
 
@@ -155,130 +119,7 @@ function formatTime(millis: number): string {
   return `${minutes}:${seconds}`;
 }
 
-const IconDefaults = { size: 28, color: "#fff" } as const;
-
-const HeartIcon = React.memo(
-  ({
-    size = IconDefaults.size,
-    color = IconDefaults.color,
-  }: {
-    size?: number;
-    color?: string;
-  }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"
-        fill={color}
-      />
-    </Svg>
-  )
-);
-
-const CommentIcon = React.memo(
-  ({
-    size = IconDefaults.size,
-    color = IconDefaults.color,
-  }: {
-    size?: number;
-    color?: string;
-  }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-        fill={color}
-      />
-    </Svg>
-  )
-);
-
-const VolumeIcon = React.memo(
-  ({
-    size = IconDefaults.size,
-    color = IconDefaults.color,
-  }: {
-    size?: number;
-    color?: string;
-  }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M11 5L6 9H2v6h4l5 4V5z" fill={color} />
-      <Path
-        d="M19 8a5 5 0 0 1 0 8"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  )
-);
-
-const VolumeOffIcon = React.memo(
-  ({
-    size = IconDefaults.size,
-    color = IconDefaults.color,
-  }: {
-    size?: number;
-    color?: string;
-  }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M11 5L6 9H2v6h4l5 4V5z" fill={color} />
-      <Path
-        d="M23 3L3 21"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  )
-);
-
-const ReportIcon = React.memo(
-  ({
-    size = IconDefaults.size,
-    color = IconDefaults.color,
-  }: {
-    size?: number;
-    color?: string;
-  }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        fill={color}
-      />
-      <Path d="M12 9v4" stroke="#000" strokeWidth={2} strokeLinecap="round" />
-      <Path
-        d="M12 17h.01"
-        stroke="#000"
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
-    </Svg>
-  )
-);
-
-const SaveIcon = React.memo(
-  ({
-    size = IconDefaults.size,
-    color = IconDefaults.color,
-    filled = false,
-  }: {
-    size?: number;
-    color?: string;
-    filled?: boolean;
-  }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"
-        fill={filled ? color : "none"}
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  )
-);
+/* Icons moved to components/shorts/Icons.tsx */
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
@@ -333,832 +174,9 @@ const styles = StyleSheet.create({
   progressFill: { height: "100%", backgroundColor: "#ff0055" },
 });
 
-const modalStyles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.12)",
-  },
-  modalTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(245, 158, 11, 0.15)",
-    borderLeftWidth: 3,
-    borderLeftColor: "#f59e0b",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginHorizontal: 16,
-    marginVertical: 12,
-    borderRadius: 8,
-  },
-  errorBannerText: {
-    flex: 1,
-    color: "#fbbf24",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  retryButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(245, 158, 11, 0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  commentList: {
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  commentBubble: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  commentHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 10,
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-  commentHeaderInfo: {
-    flex: 1,
-  },
-  commentUserRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  commentUsername: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  verifiedBadge: {
-    marginLeft: 2,
-  },
-  commentTime: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 11,
-    marginTop: 2,
-  },
-  commentText: {
-    color: "#fff",
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  emptyText: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 14,
-    textAlign: "center",
-  },
-  commentInputContainer: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "#000",
-  },
-  commentInput: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    color: "#fff",
-  },
-  commentButton: {
-    alignSelf: "flex-end",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: "#38bdf8",
-  },
-  commentButtonDisabled: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  commentButtonText: {
-    color: "#000",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  loginPrompt: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.05)",
-    alignItems: "center",
-  },
-  loginPromptText: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 14,
-  },
-});
+/* Comment modal styles moved into `components/ShortsCommentModal.tsx` */
 
-const ShortPlayerCard = React.memo(
-  function ShortPlayerCard({
-    item,
-    isActive,
-    topInset,
-    bottomInset,
-    onOpenComments,
-    onReport,
-    onToggleSave,
-    isSaved,
-  }: ShortPlayerCardProps) {
-    const { user, token } = useAuth();
-    const videoRef = useRef<ExpoVideo | null>(null);
-    const [isBuffering, setIsBuffering] = useState(true);
-    const [hasError, setHasError] = useState<string | null>(null);
-    const [isMuted, setIsMuted] = useState<boolean>(Platform.OS === "web");
-    const [isPlayingLocal, setIsPlayingLocal] = useState<boolean>(false);
-    // used to force a remount/reload of the ExpoVideo component when user requests reload
-    const [reloadKey, setReloadKey] = useState<number>(0);
-    const [progress, setProgress] = useState<number>(0);
-    const [timeRemainingLabel, setTimeRemainingLabel] = useState<string | null>(
-      null
-    );
-
-    // Interaction states
-    const [likes, setLikes] = useState(0);
-    const [isLiked, setIsLiked] = useState(false);
-    const [comments, setComments] = useState<VideoComment[]>([]);
-    const [isLoadingLikes, setIsLoadingLikes] = useState(false);
-    const [isPostingReaction, setIsPostingReaction] = useState(false);
-
-    // Double tap to like
-    const lastTap = useRef<number>(0);
-    const doubleTapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const likeAnimationScale = useRef(new Animated.Value(0)).current;
-
-    // Center play/pause auto-hide animation
-    const centerAnim = useRef(new Animated.Value(1)).current;
-    const [centerTouchable, setCenterTouchable] = useState(true);
-    const centerHideTimeout = useRef<ReturnType<typeof setTimeout> | null>(
-      null
-    );
-    const CENTER_HIDE_DELAY = 1500; // ms
-
-    const showCenterButton = useCallback(() => {
-      if (centerHideTimeout.current) {
-        clearTimeout(centerHideTimeout.current);
-        centerHideTimeout.current = null;
-      }
-      setCenterTouchable(true);
-      Animated.timing(centerAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }).start();
-
-      centerHideTimeout.current = setTimeout(() => {
-        if (centerHideTimeout.current) {
-          clearTimeout(centerHideTimeout.current);
-          centerHideTimeout.current = null;
-        }
-        Animated.timing(centerAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => setCenterTouchable(false));
-      }, CENTER_HIDE_DELAY);
-    }, [centerAnim]);
-
-    const hideCenterButton = useCallback(() => {
-      if (centerHideTimeout.current) {
-        clearTimeout(centerHideTimeout.current);
-        centerHideTimeout.current = null;
-      }
-      Animated.timing(centerAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => setCenterTouchable(false));
-    }, [centerAnim]);
-
-    // throttle progress updates: at most every 250ms or when percent changes >= 1%
-    const lastProgressUpdateTs = useRef<number>(0);
-    const lastProgressPct = useRef<number>(-1);
-
-    const videoId = item.video.id;
-
-    // Load likes and user reaction when video becomes active
-    useEffect(() => {
-      if (!isActive || !videoId) return;
-
-      const controller = new AbortController();
-
-      const loadInteractions = async () => {
-        setIsLoadingLikes(true);
-        try {
-          // Fetch likes
-          const likesResp = await fetchVideoLikes(videoId, controller.signal);
-          setLikes(likesResp.data.likes || 0);
-
-          // Fetch user reaction if authenticated
-          if (token) {
-            const reactionResp = await fetchUserReaction(
-              videoId,
-              token,
-              controller.signal
-            );
-            setIsLiked(reactionResp.data.reaction === 1);
-          }
-
-          // Fetch comments count (just first page to get count)
-          const commentsResp = await fetchVideoComments(videoId, {
-            page: 1,
-            limit: 1,
-            signal: controller.signal,
-          });
-          setComments(commentsResp.data || []);
-        } catch (error) {
-          if (!controller.signal.aborted && __DEV__) {
-            console.warn("Failed to load interactions:", error);
-          }
-        } finally {
-          if (!controller.signal.aborted) {
-            setIsLoadingLikes(false);
-          }
-        }
-      };
-
-      loadInteractions();
-
-      return () => {
-        controller.abort();
-      };
-    }, [isActive, videoId, token]);
-
-    const handleLikePress = useCallback(async () => {
-      if (!videoId || !token || isPostingReaction) {
-        return;
-      }
-
-      setIsPostingReaction(true);
-      try {
-        // Post the reaction first
-        const response = await postVideoReaction(videoId, "like", token);
-
-        // Apply server-provided count immediately
-        if (response?.data?.likes !== undefined) {
-          setLikes(response.data.likes);
-        }
-
-        // Then re-fetch likes to ensure we have the canonical count
-        try {
-          const likesResp = await fetchVideoLikes(videoId);
-          setLikes(likesResp?.data?.likes ?? response?.data?.likes ?? 0);
-        } catch (refreshErr) {
-          // If refresh fails, keep the value from the reaction response.
-          if (__DEV__) console.warn("Failed to refresh likes:", refreshErr);
-        }
-
-        // Toggle local liked state (server toggles on backend)
-        setIsLiked((prev) => !prev);
-      } catch (error) {
-        if (__DEV__) {
-          console.warn("Failed to update reaction:", error);
-        }
-      } finally {
-        setIsPostingReaction(false);
-      }
-    }, [videoId, token, isPostingReaction]);
-
-    const animateLike = useCallback(() => {
-      likeAnimationScale.setValue(0);
-      Animated.sequence([
-        Animated.spring(likeAnimationScale, {
-          toValue: 1,
-          friction: 3,
-          useNativeDriver: true,
-        }),
-        Animated.timing(likeAnimationScale, {
-          toValue: 0,
-          duration: 400,
-          delay: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, [likeAnimationScale]);
-
-    const handleDoubleTap = useCallback(() => {
-      const now = Date.now();
-      const DOUBLE_TAP_DELAY = 300;
-
-      if (doubleTapTimeout.current) {
-        clearTimeout(doubleTapTimeout.current);
-        doubleTapTimeout.current = null;
-      }
-
-      if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-        // Double tap detected
-        lastTap.current = 0;
-
-        // Only like if not already liked
-        if (!isLiked && token) {
-          animateLike();
-          handleLikePress();
-        }
-      } else {
-        // Single tap - toggle play/pause
-        lastTap.current = now;
-        doubleTapTimeout.current = setTimeout(() => {
-          togglePlayPause();
-          doubleTapTimeout.current = null;
-        }, DOUBLE_TAP_DELAY);
-      }
-    }, [isLiked, token, animateLike, handleLikePress]);
-
-    useEffect(() => {
-      const player = videoRef.current;
-      if (!player) return;
-
-      if (isActive && !hasError) {
-        // ensure muted on web to allow autoplay
-        (player as any).setIsMutedAsync?.(isMuted).catch(() => {});
-        player.playAsync().catch(() => {});
-      } else {
-        player.pauseAsync().catch(() => {});
-      }
-    }, [isActive, hasError, isMuted, item.source]);
-
-    // Auto-hide center play/pause button: show on mount and on playback state changes.
-    useEffect(() => {
-      // Always show button initially so user knows control exists
-      showCenterButton();
-
-      return () => {
-        if (centerHideTimeout.current) {
-          clearTimeout(centerHideTimeout.current);
-          centerHideTimeout.current = null;
-        }
-      };
-    }, []);
-
-    useEffect(() => {
-      // If buffering or there's an error, keep the control visible
-      if (isBuffering || hasError) {
-        if (centerHideTimeout.current) {
-          clearTimeout(centerHideTimeout.current);
-          centerHideTimeout.current = null;
-        }
-        setCenterTouchable(true);
-        Animated.timing(centerAnim, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }).start();
-        return;
-      }
-
-      // When playing, schedule hide; when paused, ensure visible
-      if (isPlayingLocal) {
-        showCenterButton();
-      } else {
-        // paused -> keep visible
-        if (centerHideTimeout.current) {
-          clearTimeout(centerHideTimeout.current);
-          centerHideTimeout.current = null;
-        }
-        setCenterTouchable(true);
-        Animated.timing(centerAnim, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }).start();
-      }
-    }, [isPlayingLocal, isBuffering, hasError, showCenterButton, centerAnim]);
-
-    const handleStatusUpdate = useCallback(
-      (status: AVPlaybackStatus) => {
-        const s = status as any;
-        if (!s) return;
-
-        // Do not treat transient unloaded states as fatal errors. Only set an error
-        // if the player reports an actual error payload when not loaded.
-        if (s.isLoaded === false) {
-          if (s.error) {
-            setHasError(
-              typeof s.error === "string" ? s.error : "Unable to load video"
-            );
-          }
-          // keep buffering/playing flags in sync if provided
-          setIsBuffering(Boolean(s.isBuffering));
-          setIsPlayingLocal(Boolean(s.isPlaying));
-          return;
-        }
-
-        // When loaded successfully, clear any prior error and update playback state
-        if (hasError) setHasError(null);
-
-        setIsBuffering(Boolean(s.isBuffering));
-        setIsPlayingLocal(Boolean(s.isPlaying));
-        if (s.durationMillis && s.positionMillis) {
-          const pct = Math.max(
-            0,
-            Math.min(100, (s.positionMillis / s.durationMillis) * 100)
-          );
-          const now = Date.now();
-          const lastTs = lastProgressUpdateTs.current;
-          const lastPct = lastProgressPct.current;
-          if (now - lastTs > 250 || Math.abs(pct - lastPct) >= 1) {
-            lastProgressUpdateTs.current = now;
-            lastProgressPct.current = pct;
-            setProgress(Number.isFinite(pct) ? Math.round(pct * 100) / 100 : 0);
-          }
-          // update countdown label (duration - position)
-          const remaining = Math.max(
-            0,
-            (s.durationMillis ?? 0) - (s.positionMillis ?? 0)
-          );
-          setTimeRemainingLabel(formatTime(remaining));
-        } else {
-          if (lastProgressPct.current !== 0) {
-            lastProgressPct.current = 0;
-            setProgress(0);
-          }
-          setTimeRemainingLabel(null);
-        }
-      },
-      [hasError]
-    );
-
-    const handleError = useCallback((err: unknown) => {
-      if (__DEV__) console.warn("Video onError", err);
-      setHasError("Playback error");
-    }, []);
-
-    const togglePlayPause = useCallback(() => {
-      const player = videoRef.current;
-      if (!player) return;
-      if (isPlayingLocal) {
-        void player
-          .pauseAsync()
-          .then(() => setIsPlayingLocal(false))
-          .catch(() => {});
-      } else {
-        void player
-          .playAsync()
-          .then(() => setIsPlayingLocal(true))
-          .catch(() => {});
-      }
-      // show center control briefly when user toggles playback
-      try {
-        showCenterButton();
-      } catch (e) {
-        // ignore
-      }
-    }, [isPlayingLocal, showCenterButton]);
-
-    const toggleMute = useCallback(() => {
-      const next = !isMuted;
-      setIsMuted(next);
-      const player = videoRef.current;
-      if (!player) return;
-      void (player as any).setIsMutedAsync?.(next).catch(() => {});
-      void (player as any)
-        .setStatusAsync?.({ volume: next ? 0 : 1 })
-        .catch(() => {});
-    }, [isMuted]);
-
-    const durationLabel = useMemo(
-      () => getDurationLabel(item.video),
-      [item.video]
-    );
-
-    const commentsCount = comments.length;
-    const likesDisplay = useMemo(() => {
-      const likeCount = likes || 0;
-      return likeCount >= 1000
-        ? `${(likeCount / 1000).toFixed(1)}K`
-        : likeCount.toString();
-    }, [likes]);
-
-    return (
-      <View style={styles.root}>
-        <Pressable
-          style={styles.fullScreen}
-          onPress={handleDoubleTap}
-          android_ripple={{ color: "rgba(255,255,255,0.02)" }}
-        >
-          <ExpoVideo
-            key={reloadKey}
-            ref={videoRef}
-            style={styles.fullScreen}
-            source={{ uri: item.source.uri }}
-            resizeMode={ResizeMode.COVER}
-            shouldPlay={isActive && !hasError}
-            isLooping
-            volume={isMuted ? 0 : 1}
-            isMuted={isMuted}
-            posterSource={{ uri: item.video.imageUrl }}
-            posterStyle={{ resizeMode: "cover" }}
-            usePoster
-            onPlaybackStatusUpdate={handleStatusUpdate}
-            onError={handleError}
-            onLoadStart={() => setIsBuffering(true)}
-            onLoad={() => setIsBuffering(false)}
-          />
-
-          {/* Double tap like animation */}
-          <Animated.View
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              marginLeft: -60,
-              marginTop: -60,
-              opacity: likeAnimationScale,
-              transform: [{ scale: likeAnimationScale }],
-            }}
-            pointerEvents="none"
-          >
-            <HeartIcon size={120} color="#ff2d55" />
-          </Animated.View>
-
-          {/* Center play/pause button (explicit control) */}
-          <Animated.View
-            style={[styles.centerPlayPauseButton, { opacity: centerAnim }]}
-            pointerEvents="box-none"
-          >
-            <Pressable
-              onPress={() => {
-                togglePlayPause();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={isPlayingLocal ? "Pause" : "Play"}
-              pointerEvents={centerTouchable ? "auto" : "none"}
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                width: "100%",
-                height: "100%",
-              }}
-            >
-              {isPlayingLocal ? (
-                <Ionicons name="pause" size={28} color="#fff" />
-              ) : (
-                <Ionicons name="play" size={28} color="#fff" />
-              )}
-            </Pressable>
-          </Animated.View>
-        </Pressable>
-
-        <View
-          style={{
-            position: "absolute",
-            // shift up slightly so controls sit closer to status bar/header
-            top: topInset + 8,
-            left: 16,
-            right: 16,
-            flexDirection: "row",
-            justifyContent: "flex-end",
-            alignItems: "center",
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            {timeRemainingLabel || durationLabel ? (
-              <View style={styles.topBadge}>
-                <Text
-                  style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}
-                >
-                  {timeRemainingLabel ?? durationLabel}
-                </Text>
-              </View>
-            ) : null}
-
-            <Pressable
-              onPress={toggleMute}
-              style={{
-                marginLeft: 10,
-                paddingHorizontal: 8,
-                paddingVertical: 6,
-                borderRadius: 999,
-                backgroundColor: "rgba(0,0,0,0.45)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted ? (
-                <VolumeOffIcon size={20} color="#fff" />
-              ) : (
-                <VolumeIcon size={20} color="#fff" />
-              )}
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={[styles.bottomMeta, { bottom: bottomInset + 32 }]}>
-          <Text
-            style={{ color: "#fff", fontSize: 18, fontWeight: "700" }}
-            numberOfLines={2}
-          >
-            {item.video.title}
-          </Text>
-          {item.video.author ? (
-            <Text
-              style={{
-                color: "rgba(255,255,255,0.85)",
-                marginTop: 6,
-                fontSize: 13,
-                fontWeight: "600",
-                textTransform: "uppercase",
-              }}
-            >
-              {item.video.author}
-            </Text>
-          ) : null}
-        </View>
-
-        {(isBuffering || hasError) && (
-          <View
-            style={[
-              styles.bufferingOverlay,
-              { backgroundColor: hasError ? "rgba(0,0,0,0.6)" : "transparent" },
-            ]}
-          >
-            {hasError ? (
-              <View
-                style={{
-                  paddingHorizontal: 24,
-                  paddingVertical: 18,
-                  borderRadius: 16,
-                  backgroundColor: "rgba(0,0,0,0.7)",
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontSize: 16,
-                    fontWeight: "600",
-                    textAlign: "center",
-                  }}
-                >
-                  Unable to play this short
-                </Text>
-                <Text
-                  style={{
-                    color: "rgba(255,255,255,0.75)",
-                    fontSize: 13,
-                    textAlign: "center",
-                    marginTop: 12,
-                    marginBottom: 6,
-                  }}
-                >
-                  Unable to load this video. Try reloading.
-                </Text>
-
-                <Pressable
-                  onPress={() => {
-                    // clear the error and force a remount of ExpoVideo to retry loading
-                    setHasError(null);
-                    setIsBuffering(true);
-                    // attempt to unload the player first if possible
-                    try {
-                      void videoRef.current?.unloadAsync?.();
-                    } catch (e) {
-                      // ignore
-                    }
-                    setReloadKey((k) => k + 1);
-                  }}
-                  style={{
-                    marginTop: 6,
-                    backgroundColor: "#ff0055",
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: 12,
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontWeight: "700" }}>
-                    Reload
-                  </Text>
-                </Pressable>
-              </View>
-            ) : (
-              <ActivityIndicator size="large" color="#ffffff" />
-            )}
-          </View>
-        )}
-
-        <View style={[styles.rightActions, { bottom: bottomInset + 120 }]}>
-          <Pressable
-            style={{ alignItems: "center", marginBottom: 18 }}
-            onPress={handleLikePress}
-            disabled={!token || isPostingReaction}
-          >
-            <HeartIcon size={34} color={isLiked ? "#ff2d55" : "#fff"} />
-            <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
-              {likesDisplay}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={{ alignItems: "center", marginBottom: 18 }}
-            onPress={() => onOpenComments(videoId)}
-          >
-            <CommentIcon size={30} color="#fff" />
-            <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
-              {commentsCount}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={{ alignItems: "center", marginBottom: 18 }}
-            onPress={() => onToggleSave(videoId, isSaved)}
-          >
-            <SaveIcon size={28} color="#fff" filled={isSaved} />
-            <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
-              Save
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={{ alignItems: "center", marginBottom: 18 }}
-            onPress={() => onReport(videoId)}
-          >
-            <ReportIcon size={26} color="#fff" />
-            <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
-              Report
-            </Text>
-          </Pressable>
-
-          {/* mute control moved to top-right */}
-        </View>
-
-        <View
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: bottomInset + 12,
-            height: 4,
-          }}
-        >
-          <View style={[styles.progressTrack]}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
-          </View>
-        </View>
-      </View>
-    );
-  },
-  (prev, next) => {
-    return (
-      prev.isActive === next.isActive &&
-      prev.item.video.id === next.item.video.id &&
-      prev.topInset === next.topInset &&
-      prev.bottomInset === next.bottomInset &&
-      prev.onOpenComments === next.onOpenComments
-    );
-  }
-);
+/* ShortPlayerCard implementation moved to components/ShortPlayerCard.tsx */
 
 export default function ShortsScreen() {
   const { user, token } = useAuth();
@@ -1176,24 +194,13 @@ export default function ShortsScreen() {
   // Comment modal state
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
-  const [comments, setComments] = useState<VideoComment[]>([]);
-  const [commentDraft, setCommentDraft] = useState("");
-  const [isLoadingComments, setIsLoadingComments] = useState(false);
-  const [isPostingComment, setIsPostingComment] = useState(false);
-  const [commentsError, setCommentsError] = useState<string | null>(null);
-  const [commentsPage, setCommentsPage] = useState(1);
-  const [commentsTotalPages, setCommentsTotalPages] = useState(1);
-  const [isLoadingMoreComments, setIsLoadingMoreComments] = useState(false);
 
   // Report modal state
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportingVideoId, setReportingVideoId] = useState<string | null>(null);
-  const [reportReason, setReportReason] = useState("");
-  const [selectedReportOption, setSelectedReportOption] = useState<
-    string | null
-  >(null);
-  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(
+    null
+  );
 
   // Saved videos state (local for demo - should be persisted)
   const [savedVideoIds, setSavedVideoIds] = useState<Set<string>>(new Set());
@@ -1203,48 +210,23 @@ export default function ShortsScreen() {
   const requestRef = useRef<AbortController | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  // Handle opening comment modal
-  const handleOpenComments = useCallback(
-    async (videoId: string) => {
-      setSelectedVideoId(videoId);
-      setCommentModalVisible(true);
-      setIsLoadingComments(true);
-      setCommentsError(null);
-      setCommentsPage(1);
-
-      try {
-        const resp = await fetchVideoComments(videoId, {
-          page: 1,
-          limit: COMMENTS_PAGE_LIMIT,
-        });
-        setComments(resp.data || []);
-        setCommentsPage(resp.pagination?.page ?? 1);
-        setCommentsTotalPages(resp.pagination?.totalPages ?? 1);
-      } catch (error) {
-        setCommentsError("Failed to load comments.");
-      } finally {
-        setIsLoadingComments(false);
-      }
-    },
-    [COMMENTS_PAGE_LIMIT]
-  );
+  // Handle opening comment modal (data fetching moved to ShortsCommentModal)
+  const handleOpenComments = useCallback((videoId: string) => {
+    setSelectedVideoId(videoId);
+    setCommentModalVisible(true);
+  }, []);
 
   // Handle closing comment modal
   const handleCloseComments = useCallback(() => {
     setCommentModalVisible(false);
     setSelectedVideoId(null);
-    setComments([]);
-    setCommentDraft("");
-    setCommentsError(null);
   }, []);
 
-  // Handle opening report modal
-  const handleReport = useCallback((videoId: string) => {
-    setReportingVideoId(videoId);
+  // Handle opening report modal (for video or comment)
+  const handleReport = useCallback((videoId?: string, commentId?: string) => {
+    setReportingVideoId(videoId ?? null);
+    setReportingCommentId(commentId ?? null);
     setReportModalVisible(true);
-    setReportReason("");
-    setSelectedReportOption(null);
-    setReportError(null);
   }, []);
 
   // Handle toggle save
@@ -1259,69 +241,36 @@ export default function ShortsScreen() {
         }
         return newSet;
       });
-      // TODO: Implement API call to save/unsave video
+      // Optimistic update already applied above — now call API when authenticated
+      (async () => {
+        if (!videoId) return;
+        // get latest token from closure
+        // `token` is available from `useAuth()` in this component
+        if (!token) {
+          // Can't persist without auth; keep local state as-is
+          return;
+        }
+
+        try {
+          if (!currentlySaved) {
+            await saveVideo(videoId, token);
+          } else {
+            await unsaveVideo(videoId, token);
+          }
+        } catch (err) {
+          // Revert optimistic change on error
+          setSavedVideoIds((prev) => {
+            const next = new Set(prev);
+            if (currentlySaved) next.add(videoId);
+            else next.delete(videoId);
+            return next;
+          });
+          if (__DEV__) console.warn("Failed to toggle save for short:", err);
+        }
+      })();
     },
-    []
+    [token]
   );
-
-  // Handle posting comment
-  const handleSubmitComment = useCallback(async () => {
-    const trimmed = commentDraft.trim();
-    if (!trimmed.length || !selectedVideoId || !token) {
-      return;
-    }
-
-    Keyboard.dismiss();
-
-    setIsPostingComment(true);
-    setCommentsError(null);
-    try {
-      await postVideoComment(selectedVideoId, trimmed, token);
-      setCommentDraft("");
-
-      // Refetch comments (page 1)
-      const resp = await fetchVideoComments(selectedVideoId, {
-        page: 1,
-        limit: COMMENTS_PAGE_LIMIT,
-      });
-      setComments(resp.data || []);
-      setCommentsPage(resp.pagination?.page ?? 1);
-      setCommentsTotalPages(resp.pagination?.totalPages ?? 1);
-    } catch (error) {
-      setCommentsError("Failed to post comment. Please try again.");
-    } finally {
-      setIsPostingComment(false);
-    }
-  }, [commentDraft, selectedVideoId, token, COMMENTS_PAGE_LIMIT]);
-
-  // Load more comments
-  const loadMoreComments = useCallback(async () => {
-    if (!selectedVideoId) return;
-    if (isLoadingMoreComments) return;
-    if (commentsPage >= commentsTotalPages) return;
-
-    setIsLoadingMoreComments(true);
-    try {
-      const nextPage = commentsPage + 1;
-      const resp = await fetchVideoComments(selectedVideoId, {
-        page: nextPage,
-        limit: COMMENTS_PAGE_LIMIT,
-      });
-      setComments((prev) => [...prev, ...(resp.data || [])]);
-      setCommentsPage(resp.pagination?.page ?? nextPage);
-      setCommentsTotalPages(resp.pagination?.totalPages ?? commentsTotalPages);
-    } catch (error) {
-      setCommentsError("Failed to load more comments.");
-    } finally {
-      setIsLoadingMoreComments(false);
-    }
-  }, [
-    commentsPage,
-    commentsTotalPages,
-    isLoadingMoreComments,
-    selectedVideoId,
-    COMMENTS_PAGE_LIMIT,
-  ]);
 
   // Lower threshold to make activation a bit more permissive for shorter screens,
   // and add logging to help trace active index changes during debugging.
@@ -1342,23 +291,29 @@ export default function ShortsScreen() {
       const playable: PlayableShort[] = [];
       let unsupported = 0;
 
-      for (const video of videos) {
-        if (signal?.aborted) break;
+      try {
+        for (const video of videos) {
+          if (signal?.aborted) break;
 
-        // (dev logging removed for production)
-        const { media, short } = resolveShortMedia(video);
+          try {
+            const { media, short } = resolveShortMedia(video);
 
-        // (dev logging removed for production)
-
-        if (short.kind === "video") {
-          playable.push({
-            video,
-            source: { uri: short.uri, origin: "direct" },
-          });
-        } else {
-          // Non-direct media are unsupported for Shorts
-          unsupported += 1;
+            if (short.kind === "video") {
+              playable.push({
+                video,
+                source: { uri: short.uri, origin: "direct" },
+              });
+            } else {
+              // Non-direct media are unsupported for Shorts
+              unsupported += 1;
+            }
+          } catch (error) {
+            if (__DEV__) console.warn("Failed to resolve short media:", error);
+            unsupported += 1;
+          }
         }
+      } catch (error) {
+        if (__DEV__) console.warn("Error hydrating shorts:", error);
       }
 
       return { playable, unsupported };
@@ -1410,11 +365,50 @@ export default function ShortsScreen() {
         setShorts(playable);
         setUnsupportedCount(unsupported);
         setActiveIndex(0);
+
+        // If authenticated, fetch persisted saved state for returned shorts
+        if (token && playable.length) {
+          try {
+            const results = await Promise.allSettled(
+              playable.map((p) =>
+                fetchVideoSaved(p.video.id, token, controller.signal)
+              )
+            );
+
+            const ids = new Set<string>();
+            results.forEach((r, idx) => {
+              if (r.status === "fulfilled") {
+                const val = (r as PromiseFulfilledResult<boolean>).value;
+                if (val === true) {
+                  ids.add(playable[idx].video.id);
+                }
+              }
+            });
+
+            setSavedVideoIds(ids);
+          } catch (err) {
+            if (__DEV__)
+              console.warn("Failed to fetch saved states for shorts:", err);
+          }
+        }
       } catch (err) {
         if (controller.signal.aborted) {
           return;
         }
-        setError(getVideosErrorMessage(err));
+
+        // Better network error detection
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        const isNetworkError =
+          errorMessage.toLowerCase().includes("network") ||
+          errorMessage.toLowerCase().includes("failed to fetch") ||
+          errorMessage.toLowerCase().includes("connection") ||
+          err instanceof TypeError;
+
+        setError(
+          isNetworkError
+            ? "Network connection failed. Please check your internet and try again."
+            : getVideosErrorMessage(err)
+        );
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -1469,20 +463,25 @@ export default function ShortsScreen() {
   const itemHeight = containerHeight;
 
   const renderItem = useCallback(
-    ({ item, index }: { item: PlayableShort; index: number }) => (
-      <View style={{ height: itemHeight, width: "100%" }}>
-        <ShortPlayerCard
-          item={item}
-          isActive={isFocused && index === activeIndex}
-          topInset={insets.top}
-          bottomInset={insets.bottom}
-          onOpenComments={handleOpenComments}
-          onReport={handleReport}
-          onToggleSave={handleToggleSave}
-          isSaved={savedVideoIds.has(item.video.id)}
-        />
-      </View>
-    ),
+    ({ item, index }: { item: PlayableShort; index: number }) => {
+      const isItemActive = isFocused && index === activeIndex;
+      const isItemSaved = savedVideoIds.has(item.video.id);
+
+      return (
+        <View style={{ height: itemHeight, width: "100%" }}>
+          <ShortPlayerCard
+            item={item}
+            isActive={isItemActive}
+            topInset={insets.top}
+            bottomInset={insets.bottom}
+            onOpenComments={handleOpenComments}
+            onReport={handleReport}
+            onToggleSave={handleToggleSave}
+            isSaved={isItemSaved}
+          />
+        </View>
+      );
+    },
     [
       activeIndex,
       insets.bottom,
@@ -1525,12 +524,13 @@ export default function ShortsScreen() {
   }
 
   if (error && !shorts.length) {
+    const errStr = typeof error === "string" ? error : String(error ?? "");
     const is429Error =
-      error.toLowerCase().includes("429") ||
-      error.toLowerCase().includes("rate limit");
+      errStr.toLowerCase().includes("429") ||
+      errStr.toLowerCase().includes("rate limit");
     const isNetworkError =
-      error.toLowerCase().includes("network") ||
-      error.toLowerCase().includes("connection");
+      errStr.toLowerCase().includes("network") ||
+      errStr.toLowerCase().includes("connection");
 
     return (
       <View
@@ -1588,7 +588,7 @@ export default function ShortsScreen() {
             ? "We're receiving a lot of traffic right now. Please wait a moment and try again."
             : isNetworkError
               ? "Please check your internet connection and try again."
-              : error}
+              : errStr}
         </Text>
 
         {/* Reload Button */}
@@ -1731,6 +731,100 @@ export default function ShortsScreen() {
         if (h && h > 0 && h !== containerHeight) setContainerHeight(h);
       }}
     >
+      {/* Network error dialog: appears when a network-related error occurs */}
+      {(() => {
+        const errStrGlobal =
+          typeof error === "string" ? error : String(error ?? "");
+        const showNetworkModal =
+          Boolean(errStrGlobal) &&
+          /network|connection|request failed/i.test(errStrGlobal) &&
+          !loading;
+
+        if (!showNetworkModal) return null;
+
+        return (
+          <Modal
+            visible
+            transparent
+            animationType="fade"
+            onRequestClose={() => setError(null)}
+          >
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.6)",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: 20,
+              }}
+            >
+              <View
+                style={{
+                  width: "100%",
+                  maxWidth: 420,
+                  backgroundColor: "#1a1a1a",
+                  borderRadius: 12,
+                  padding: 20,
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 18,
+                    fontWeight: "600",
+                    marginBottom: 8,
+                  }}
+                >
+                  Network Problem
+                </Text>
+                <Text style={{ color: "#ccc", fontSize: 14, marginBottom: 16 }}>
+                  {errStrGlobal}
+                </Text>
+
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <Pressable
+                    onPress={() => {
+                      // retry
+                      setError(null);
+                      void loadShorts(true);
+                    }}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      borderRadius: 8,
+                      backgroundColor: "#ff0055",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text
+                      style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
+                    >
+                      Try Again
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setError(null)}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      borderRadius: 8,
+                      backgroundColor: "rgba(255,255,255,0.08)",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text
+                      style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
+                    >
+                      Dismiss
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        );
+      })()}
       {/* Dev-only overlay removed — was showing active index and source URI */}
       <FlatList
         ref={flatListRef}
@@ -1750,10 +844,11 @@ export default function ShortsScreen() {
           offset: itemHeight * index,
           index,
         })}
-        initialNumToRender={2}
-        maxToRenderPerBatch={2}
-        windowSize={5}
-        removeClippedSubviews={true}
+        initialNumToRender={1}
+        maxToRenderPerBatch={1}
+        windowSize={3}
+        removeClippedSubviews={Platform.OS === "android"}
+        updateCellsBatchingPeriod={100}
         onScrollToIndexFailed={(info) => {
           // Fallback: scroll to offset if index fails
           const wait = new Promise((resolve) => setTimeout(resolve, 500));
@@ -1766,422 +861,31 @@ export default function ShortsScreen() {
         }}
       />
 
-      {/* Comment Modal */}
-      <Modal
+      {/* Comment Modal (extracted to component) */}
+      <ShortsCommentModal
         visible={commentModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={handleCloseComments}
-      >
-        <KeyboardAvoidingView
-          style={modalStyles.modalContainer}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={insets.bottom + 60}
-        >
-          {/* Header */}
-          <View style={modalStyles.modalHeader}>
-            <Text style={modalStyles.modalTitle}>
-              Comments ({comments.length})
-            </Text>
-            <Pressable
-              onPress={handleCloseComments}
-              style={modalStyles.closeButton}
-            >
-              <Ionicons name="close" size={28} color="#fff" />
-            </Pressable>
-          </View>
+        videoId={selectedVideoId}
+        token={token}
+        onClose={handleCloseComments}
+        onReport={handleReport}
+      />
 
-          {/* Comments List */}
-          <View style={{ flex: 1 }}>
-            {commentsError && (
-              <View style={modalStyles.errorBanner}>
-                <Ionicons name="warning-outline" size={18} color="#f59e0b" />
-                <Text style={modalStyles.errorBannerText}>{commentsError}</Text>
-                <Pressable
-                  onPress={() => {
-                    if (selectedVideoId) {
-                      setCommentsError(null);
-                      handleOpenComments(selectedVideoId);
-                    }
-                  }}
-                  style={modalStyles.retryButton}
-                >
-                  <Ionicons name="refresh" size={16} color="#fff" />
-                </Pressable>
-              </View>
-            )}
-
-            {isLoadingComments ? (
-              <View style={modalStyles.loadingContainer}>
-                <ActivityIndicator size="large" color="#fff" />
-              </View>
-            ) : commentsError && !comments.length ? (
-              <View style={modalStyles.emptyContainer}>
-                <Ionicons
-                  name="cloud-offline-outline"
-                  size={64}
-                  color="rgba(255,255,255,0.3)"
-                />
-                <Text
-                  style={[
-                    modalStyles.emptyText,
-                    { marginTop: 16, fontSize: 16, fontWeight: "600" },
-                  ]}
-                >
-                  Unable to load comments
-                </Text>
-                <Text style={[modalStyles.emptyText, { marginTop: 8 }]}>
-                  Please check your connection
-                </Text>
-                <Pressable
-                  onPress={() => {
-                    if (selectedVideoId) {
-                      setCommentsError(null);
-                      handleOpenComments(selectedVideoId);
-                    }
-                  }}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                    paddingHorizontal: 20,
-                    paddingVertical: 10,
-                    borderRadius: 999,
-                    backgroundColor: "#ff0055",
-                    marginTop: 20,
-                  }}
-                >
-                  <Ionicons name="refresh" size={18} color="#fff" />
-                  <Text
-                    style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}
-                  >
-                    Try Again
-                  </Text>
-                </Pressable>
-              </View>
-            ) : comments.length ? (
-              <FlatList
-                data={comments}
-                keyExtractor={(item, index) => `${item.id}-${index}`}
-                contentContainerStyle={modalStyles.commentList}
-                onEndReached={loadMoreComments}
-                onEndReachedThreshold={0.5}
-                ListFooterComponent={
-                  isLoadingMoreComments ? (
-                    <ActivityIndicator
-                      size="small"
-                      color="#fff"
-                      style={{ marginVertical: 16 }}
-                    />
-                  ) : null
-                }
-                renderItem={({ item }) => {
-                  const avatarUri = resolveAvatarUri(item.avatar);
-                  return (
-                    <View style={modalStyles.commentBubble}>
-                      <View style={modalStyles.commentHeader}>
-                        <Image
-                          source={{
-                            uri: avatarUri || "https://via.placeholder.com/32",
-                          }}
-                          style={modalStyles.commentAvatar}
-                        />
-                        <View style={modalStyles.commentHeaderInfo}>
-                          <View style={modalStyles.commentUserRow}>
-                            <Text style={modalStyles.commentUsername}>
-                              {item.username}
-                            </Text>
-                            {item.verified === 1 && (
-                              <Ionicons
-                                name="checkmark-circle"
-                                size={14}
-                                color="#38bdf8"
-                                style={modalStyles.verifiedBadge}
-                              />
-                            )}
-                          </View>
-                          <Text style={modalStyles.commentTime}>
-                            {new Date(item.time * 1000).toLocaleDateString()}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={modalStyles.commentText}>{item.text}</Text>
-                    </View>
-                  );
-                }}
-              />
-            ) : (
-              <View style={modalStyles.emptyContainer}>
-                <Text style={modalStyles.emptyText}>
-                  No comments yet. Be the first to comment!
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Comment Input */}
-          {token ? (
-            <View style={modalStyles.commentInputContainer}>
-              <TextInput
-                value={commentDraft}
-                onChangeText={setCommentDraft}
-                placeholder="Add a comment..."
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                style={modalStyles.commentInput}
-                multiline
-                returnKeyType="done"
-                blurOnSubmit
-                onSubmitEditing={() => Keyboard.dismiss()}
-              />
-              <Pressable
-                style={[
-                  modalStyles.commentButton,
-                  (!commentDraft.trim() || isPostingComment) &&
-                    modalStyles.commentButtonDisabled,
-                ]}
-                onPress={handleSubmitComment}
-                disabled={!commentDraft.trim().length || isPostingComment}
-              >
-                <Text style={modalStyles.commentButtonText}>
-                  {isPostingComment ? "Posting..." : "Post"}
-                </Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={modalStyles.loginPrompt}>
-              <Text style={modalStyles.loginPromptText}>
-                Sign in to leave a comment
-              </Text>
-            </View>
-          )}
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Report Modal */}
-      <Modal
+      <ReportModal
         visible={reportModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (!isSubmittingReport) setReportModalVisible(false);
+        onClose={() => {
+          setReportModalVisible(false);
+          setReportingCommentId(null);
+          setReportingVideoId(null);
         }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.8)",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              width: "100%",
-              maxWidth: 400,
-              backgroundColor: "#1a1a1a",
-              borderRadius: 16,
-              padding: 24,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 20,
-              }}
-            >
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "600" }}>
-                Report Content
-              </Text>
-              <Pressable
-                onPress={() => {
-                  if (!isSubmittingReport) {
-                    setReportModalVisible(false);
-                    setReportReason("");
-                    setSelectedReportOption(null);
-                    setReportError(null);
-                  }
-                }}
-                style={{ padding: 4 }}
-              >
-                <Ionicons name="close" size={24} color="#fff" />
-              </Pressable>
-            </View>
-
-            <Text style={{ color: "#ccc", fontSize: 14, marginBottom: 16 }}>
-              Why are you reporting this content?
-            </Text>
-
-            {[
-              { id: "spam", label: "Spam or misleading" },
-              { id: "harassment", label: "Harassment or bullying" },
-              { id: "hate", label: "Hate speech" },
-              { id: "violence", label: "Violence or dangerous acts" },
-              { id: "sexual", label: "Sexual content" },
-              { id: "copyright", label: "Copyright infringement" },
-              { id: "other", label: "Other (please specify)" },
-            ].map((option) => {
-              const selected = selectedReportOption === option.id;
-              return (
-                <Pressable
-                  key={option.id}
-                  onPress={() => {
-                    setSelectedReportOption(option.id);
-                    if (option.id !== "other") setReportReason(option.label);
-                    else setReportReason("");
-                  }}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    marginVertical: 4,
-                    borderRadius: 8,
-                    backgroundColor: selected
-                      ? "rgba(255, 59, 48, 0.1)"
-                      : "rgba(255,255,255,0.05)",
-                    borderWidth: 1,
-                    borderColor: selected ? "#ff3b30" : "transparent",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: selected ? "#ff6b6b" : "#fff",
-                      fontSize: 14,
-                    }}
-                  >
-                    {option.label}
-                  </Text>
-                  {selected && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color="#ff3b30"
-                    />
-                  )}
-                </Pressable>
-              );
-            })}
-
-            {selectedReportOption === "other" && (
-              <TextInput
-                value={reportReason}
-                onChangeText={setReportReason}
-                placeholder="Please specify..."
-                placeholderTextColor="#666"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#333",
-                  borderRadius: 8,
-                  padding: 12,
-                  color: "#fff",
-                  backgroundColor: "rgba(255,255,255,0.05)",
-                  marginTop: 12,
-                  minHeight: 80,
-                  textAlignVertical: "top",
-                }}
-                multiline
-                numberOfLines={3}
-              />
-            )}
-
-            {reportError && (
-              <Text style={{ color: "#ff6b6b", fontSize: 14, marginTop: 12 }}>
-                {reportError}
-              </Text>
-            )}
-
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 24 }}>
-              <Pressable
-                onPress={() => {
-                  if (!isSubmittingReport) {
-                    setReportModalVisible(false);
-                    setReportReason("");
-                    setSelectedReportOption(null);
-                    setReportError(null);
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  backgroundColor: "rgba(255,255,255,0.1)",
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
-                >
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={async () => {
-                  if (
-                    !selectedReportOption ||
-                    !reportReason.trim() ||
-                    isSubmittingReport
-                  )
-                    return;
-
-                  setIsSubmittingReport(true);
-                  setReportError(null);
-
-                  try {
-                    // TODO: Implement API call to submit report
-                    // await submitReport(reportingVideoId, reportReason, selectedReportOption);
-
-                    // Simulate API call
-                    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-                    setReportModalVisible(false);
-                    setReportReason("");
-                    setSelectedReportOption(null);
-                    setReportError(null);
-
-                    // Show success feedback (could be a toast)
-                    alert(
-                      "Report submitted. Thank you for helping keep our community safe."
-                    );
-                  } catch (error) {
-                    setReportError(
-                      "Failed to submit report. Please try again."
-                    );
-                  } finally {
-                    setIsSubmittingReport(false);
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  backgroundColor:
-                    !selectedReportOption ||
-                    !reportReason.trim() ||
-                    isSubmittingReport
-                      ? "rgba(255, 59, 48, 0.3)"
-                      : "#ff3b30",
-                  alignItems: "center",
-                }}
-                disabled={
-                  !selectedReportOption ||
-                  !reportReason.trim() ||
-                  isSubmittingReport
-                }
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
-                >
-                  {isSubmittingReport ? "Submitting..." : "Report"}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        videoId={reportingVideoId}
+        commentId={reportingCommentId}
+        token={token ?? null}
+        onSuccess={() => {
+          setReportModalVisible(false);
+          setReportingCommentId(null);
+          setReportingVideoId(null);
+        }}
+      />
     </View>
   );
 }

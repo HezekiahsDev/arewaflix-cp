@@ -73,6 +73,17 @@ export type UserReactionResponse = {
 };
 
 /**
+ * Comment reaction response
+ */
+export type CommentReactionResponse = {
+  data: {
+    commentId: number;
+    likes: number;
+    dislikes: number;
+  };
+};
+
+/**
  * View tracking response
  */
 export type ViewResponse = {
@@ -301,6 +312,139 @@ export async function postVideoReaction(
 }
 
 /**
+ * Save a video for the authenticated user
+ */
+export async function saveVideo(
+  videoId: string | number,
+  token: string,
+  signal?: AbortSignal
+): Promise<any> {
+  const url = `${API_BASE_URL}/api/v1/videos/${videoId}/save`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  const text = await response.text();
+  let payload: any;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to save video: ${response.status} ${response.statusText} - ${text}`
+      );
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to save video: ${response.status} ${response.statusText} - ${JSON.stringify(
+        payload
+      )}`
+    );
+  }
+
+  return payload;
+}
+
+/**
+ * Un-save a previously saved video for the authenticated user
+ */
+export async function unsaveVideo(
+  videoId: string | number,
+  token: string,
+  signal?: AbortSignal
+): Promise<any> {
+  const url = `${API_BASE_URL}/api/v1/videos/${videoId}/save`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  const text = await response.text();
+  let payload: any;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to unsave video: ${response.status} ${response.statusText} - ${text}`
+      );
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to unsave video: ${response.status} ${response.statusText} - ${JSON.stringify(
+        payload
+      )}`
+    );
+  }
+
+  return payload;
+}
+
+/**
+ * Fetch whether the authenticated user has saved a video
+ */
+export async function fetchVideoSaved(
+  videoId: string | number,
+  token: string,
+  signal?: AbortSignal
+): Promise<boolean> {
+  const url = `${API_BASE_URL}/api/v1/videos/${videoId}/save`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  const text = await response.text();
+  let payload: any;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch saved state: ${response.status} ${response.statusText} - ${text}`
+      );
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch saved state: ${response.status} ${response.statusText} - ${JSON.stringify(
+        payload
+      )}`
+    );
+  }
+
+  const savedFlag = payload?.data?.saved ?? payload?.saved ?? payload?.is_saved;
+  return Boolean(savedFlag === 1 || savedFlag === true);
+}
+
+/**
  * Track a view on a video (no auth required, but optionally includes user_id)
  */
 export async function trackVideoView(
@@ -349,6 +493,150 @@ export async function trackVideoView(
   }
 
   return payload as ViewResponse;
+}
+
+/**
+ * Post a reaction (like/dislike/remove) on a comment (requires auth)
+ */
+export async function postCommentReaction(
+  videoId: string | number,
+  commentId: string | number,
+  action: "like" | "dislike" | "remove",
+  token: string,
+  signal?: AbortSignal
+): Promise<CommentReactionResponse> {
+  const url = `${API_BASE_URL}/api/v1/videos/${videoId}/comments/${commentId}/reactions`;
+  const body = { action };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  const text = await response.text();
+  let payload: any;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to post comment reaction: ${response.status} ${response.statusText} - ${text}`
+      );
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to post comment reaction: ${response.status} ${response.statusText} - ${JSON.stringify(payload)}`
+    );
+  }
+
+  return payload as CommentReactionResponse;
+}
+
+/**
+ * Submit a report for a video
+ */
+export async function submitVideoReport(
+  videoId: string | number,
+  text: string,
+  category?: string,
+  token?: string,
+  signal?: AbortSignal
+): Promise<any> {
+  const url = `${API_BASE_URL}/api/v1/videos/${videoId}/report`;
+  // API expects only the `text` field in the request body. Do not include
+  // additional fields like `category` as they cause a 400 response.
+  const body: any = { text };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  const textResp = await response.text();
+  let payload: any;
+  try {
+    payload = textResp ? JSON.parse(textResp) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to submit video report: ${response.status} ${response.statusText} - ${textResp}`
+      );
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to submit video report: ${response.status} ${response.statusText} - ${JSON.stringify(payload)}`
+    );
+  }
+
+  return payload;
+}
+
+/**
+ * Submit a report for a comment
+ */
+export async function submitCommentReport(
+  videoId: string | number,
+  commentId: string | number,
+  text: string,
+  category?: string,
+  token?: string,
+  signal?: AbortSignal
+): Promise<any> {
+  // Endpoint uses nested video -> comment path
+  const url = `${API_BASE_URL}/api/v1/videos/${videoId}/comments/${commentId}/report`;
+  // API expects only the `text` field in the request body. Do not include
+  // additional fields like `category` as they cause a 400 response.
+  const body: any = { text };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  const textResp = await response.text();
+  let payload: any;
+  try {
+    payload = textResp ? JSON.parse(textResp) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to submit comment report: ${response.status} ${response.statusText} - ${textResp}`
+      );
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to submit comment report: ${response.status} ${response.statusText} - ${JSON.stringify(payload)}`
+    );
+  }
+
+  return payload;
 }
 
 function getSanitizedBaseUrl(value?: string): string {

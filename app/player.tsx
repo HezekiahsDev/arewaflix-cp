@@ -1,11 +1,16 @@
+import ReportModal from "@/components/ReportModal";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchUserReaction,
   fetchVideoComments,
   fetchVideoLikes,
+  fetchVideoSaved,
+  postCommentReaction,
   postVideoComment,
   postVideoReaction,
+  saveVideo,
   trackVideoView,
+  unsaveVideo,
   VideoComment,
 } from "@/lib/api/video-interactions";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
@@ -37,7 +42,6 @@ import {
   FlatList,
   Image,
   Keyboard,
-  Modal,
   Platform,
   Pressable,
   StatusBar,
@@ -53,6 +57,17 @@ const API_BASE_URL = "https://api.arewaflix.io";
 const API_HOSTNAMES = ["api.arewaflix.io", "arewaflix.io", "www.arewaflix.io"];
 
 // SVG Icon Components
+const HeartIcon = React.memo(
+  ({ size = 24, color = "#fff" }: { size?: number; color?: string }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"
+        fill={color}
+      />
+    </Svg>
+  )
+);
+
 const ReportIcon = React.memo(
   ({ size = 24, color = "#fff" }: { size?: number; color?: string }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -357,14 +372,18 @@ export default function PlayerScreen() {
   const [commentsTotalPages, setCommentsTotalPages] = useState(1);
   const [isLoadingMoreComments, setIsLoadingMoreComments] = useState(false);
 
-  // Report modal state
+  // Comment like state
+  const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [likingCommentId, setLikingCommentId] = useState<string | null>(null);
+
+  // Report modal state (delegated to ReportModal component)
   const [reportModalVisible, setReportModalVisible] = useState(false);
-  const [reportReason, setReportReason] = useState("");
-  const [selectedReportOption, setSelectedReportOption] = useState<
-    string | null
-  >(null);
-  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  const [reportError, setReportError] = useState<string | null>(null);
+  // If reporting a comment, this holds the comment id; otherwise null
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(
+    null
+  );
 
   // Saved state (local for demo - should be persisted)
   const [isSaved, setIsSaved] = useState(false);
@@ -570,6 +589,33 @@ export default function PlayerScreen() {
     return () => {
       controller.abort();
     };
+  }, [videoId, token]);
+
+  // Fetch persisted saved state from API so the toggle reflects server-side state
+  useEffect(() => {
+    if (!videoId) return;
+
+    const controller = new AbortController();
+
+    (async () => {
+      if (!token) {
+        // Not authenticated — keep local default
+        return;
+      }
+
+      try {
+        const isSavedFlag = await fetchVideoSaved(
+          videoId,
+          token,
+          controller.signal
+        );
+        setIsSaved(Boolean(isSavedFlag));
+      } catch (err) {
+        if (__DEV__) console.warn("Failed to fetch saved state:", err);
+      }
+    })();
+
+    return () => controller.abort();
   }, [videoId, token]);
 
   // Auto-refresh comments at safe intervals
@@ -814,19 +860,34 @@ export default function PlayerScreen() {
     }
   }, [videoId, token, isPostingReaction, isLiked]);
 
-  const handleSavePress = useCallback(() => {
-    setIsSaved((prev) => !prev);
-    // TODO: Implement API call to save/unsave video
-    // if (!videoId || !token) return;
-    // try {
-    //   await toggleVideoSave(videoId, token);
-    // } catch (error) {
-    //   // Revert on error
-    //   setIsSaved((prev) => !prev);
-    // }
-  }, []);
+  const handleSavePress = useCallback(async () => {
+    if (!videoId) return;
 
-  const handleReportPress = useCallback(() => {
+    const wasSaved = isSaved;
+    // Optimistic UI
+    setIsSaved((prev) => !prev);
+
+    if (!token) {
+      // Revert because saving requires authentication
+      setIsSaved(wasSaved);
+      return;
+    }
+
+    try {
+      if (!wasSaved) {
+        await saveVideo(videoId, token);
+      } else {
+        await unsaveVideo(videoId, token);
+      }
+    } catch (error) {
+      // Revert on error
+      setIsSaved(wasSaved);
+      if (__DEV__) console.warn("Failed to toggle save state:", error);
+    }
+  }, [videoId, token, isSaved]);
+
+  const handleReportPress = useCallback((commentId?: string | null) => {
+    setReportingCommentId(commentId ?? null);
     setReportModalVisible(true);
   }, []);
 
@@ -876,6 +937,83 @@ export default function PlayerScreen() {
       setIsLoadingMoreComments(false);
     }
   }, [commentsPage, commentsTotalPages, isLoadingMoreComments, videoId]);
+
+  const toggleLikeComment = useCallback(
+    async (commentId: string | number) => {
+      if (!token || !videoId) return;
+
+      const idStr = String(commentId);
+      if (likingCommentId === idStr) return; // Prevent double-clicks
+
+      setLikingCommentId(idStr);
+      const wasLiked = likedCommentIds.has(idStr);
+
+      try {
+        // Optimistic update
+        setLikedCommentIds((prev) => {
+          const next = new Set(prev);
+          if (wasLiked) next.delete(idStr);
+          else next.add(idStr);
+          return next;
+        });
+
+        setComments((prevComments) =>
+          prevComments.map((c) => {
+            if (String(c.id) !== idStr) return c;
+            return {
+              ...c,
+              likes: wasLiked
+                ? Math.max(0, (c.likes || 0) - 1)
+                : (c.likes || 0) + 1,
+            };
+          })
+        );
+
+        // Post to server
+        const response = await postCommentReaction(
+          videoId,
+          commentId,
+          wasLiked ? "remove" : "like",
+          token
+        );
+
+        // Update with server response
+        if (response?.data?.likes !== undefined) {
+          setComments((prevComments) =>
+            prevComments.map((c) => {
+              if (String(c.id) !== idStr) return c;
+              return { ...c, likes: response.data.likes };
+            })
+          );
+        }
+      } catch (error) {
+        // Revert on error
+        setLikedCommentIds((prev) => {
+          const next = new Set(prev);
+          if (wasLiked) next.add(idStr);
+          else next.delete(idStr);
+          return next;
+        });
+
+        setComments((prevComments) =>
+          prevComments.map((c) => {
+            if (String(c.id) !== idStr) return c;
+            return {
+              ...c,
+              likes: wasLiked
+                ? (c.likes || 0) + 1
+                : Math.max(0, (c.likes || 0) - 1),
+            };
+          })
+        );
+
+        if (__DEV__) console.warn("Failed to toggle comment like:", error);
+      } finally {
+        setLikingCommentId(null);
+      }
+    },
+    [token, videoId, likedCommentIds, likingCommentId]
+  );
 
   const handleTogglePlay = useCallback(async () => {
     const video = videoRef.current;
@@ -1272,7 +1410,10 @@ export default function PlayerScreen() {
             </View>
             <Text style={styles.socialLabel}>{isSaved ? "Saved" : "Save"}</Text>
           </Pressable>
-          <Pressable style={styles.socialButton} onPress={handleReportPress}>
+          <Pressable
+            style={styles.socialButton}
+            onPress={() => handleReportPress()}
+          >
             <View style={{ marginBottom: 4 }}>
               <ReportIcon size={18} color="#fff" />
             </View>
@@ -1336,33 +1477,117 @@ export default function PlayerScreen() {
                 const avatarUri = resolveAvatarUri(item.avatar);
                 return (
                   <View style={styles.commentBubble}>
-                    <View style={styles.commentHeader}>
-                      <Image
-                        source={{
-                          uri: avatarUri || "https://via.placeholder.com/32",
+                    <View
+                      style={[
+                        styles.commentHeader,
+                        { justifyContent: "space-between" },
+                      ]}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
                         }}
-                        style={styles.commentAvatar}
-                      />
-                      <View style={styles.commentHeaderInfo}>
-                        <View style={styles.commentUserRow}>
-                          <Text style={styles.commentUsername}>
-                            {item.username}
+                      >
+                        <Image
+                          source={{
+                            uri: avatarUri || "https://via.placeholder.com/32",
+                          }}
+                          style={styles.commentAvatar}
+                        />
+                        <View style={styles.commentHeaderInfo}>
+                          <View style={styles.commentUserRow}>
+                            <Text style={styles.commentUsername}>
+                              {item.username}
+                            </Text>
+                            {item.verified === 1 && (
+                              <Ionicons
+                                name="checkmark-circle"
+                                size={14}
+                                color="#38bdf8"
+                                style={styles.verifiedBadge}
+                              />
+                            )}
+                          </View>
+                          <Text style={styles.commentTime}>
+                            {new Date(item.time * 1000).toLocaleString()}
                           </Text>
-                          {item.verified === 1 && (
-                            <Ionicons
-                              name="checkmark-circle"
-                              size={14}
-                              color="#38bdf8"
-                              style={styles.verifiedBadge}
-                            />
-                          )}
                         </View>
-                        <Text style={styles.commentTime}>
-                          {new Date(item.time * 1000).toLocaleString()}
-                        </Text>
                       </View>
+
+                      <Pressable
+                        onPress={() => handleReportPress(String(item.id))}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingVertical: 8,
+                          paddingHorizontal: 10,
+                          borderRadius: 8,
+                          backgroundColor: "transparent",
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Report comment"
+                      >
+                        <ReportIcon size={20} color="#ff3b30" />
+                        <Text
+                          style={{
+                            color: "#ff3b30",
+                            fontSize: 13,
+                            fontWeight: "700",
+                            marginLeft: 10,
+                          }}
+                        >
+                          Report
+                        </Text>
+                      </Pressable>
                     </View>
                     <Text style={styles.commentText}>{item.text}</Text>
+
+                    {/* Comment Actions */}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginTop: 8,
+                        gap: 16,
+                      }}
+                    >
+                      <Pressable
+                        onPress={() => toggleLikeComment(item.id)}
+                        disabled={!token || likingCommentId === String(item.id)}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          padding: 6,
+                          opacity:
+                            !token || likingCommentId === String(item.id)
+                              ? 0.5
+                              : 1,
+                        }}
+                      >
+                        <HeartIcon
+                          size={16}
+                          color={
+                            likedCommentIds.has(String(item.id))
+                              ? "#ff2d55"
+                              : "rgba(255,255,255,0.7)"
+                          }
+                        />
+                        <Text
+                          style={{
+                            color: likedCommentIds.has(String(item.id))
+                              ? "#ff2d55"
+                              : "rgba(255,255,255,0.7)",
+                            fontSize: 12,
+                            marginLeft: 6,
+                            fontWeight: "500",
+                          }}
+                        >
+                          {item.likes ?? 0}
+                        </Text>
+                      </Pressable>
+                    </View>
                   </View>
                 );
               }}
@@ -1384,231 +1609,20 @@ export default function PlayerScreen() {
         </View>
       </View>
 
-      {/* Report Modal */}
-      <Modal
+      <ReportModal
         visible={reportModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (!isSubmittingReport) setReportModalVisible(false);
+        onClose={() => {
+          setReportModalVisible(false);
+          setReportingCommentId(null);
         }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.8)",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: 20,
-          }}
-        >
-          <View
-            style={{
-              width: "100%",
-              maxWidth: 400,
-              backgroundColor: "#1a1a1a",
-              borderRadius: 16,
-              padding: 24,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 20,
-              }}
-            >
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "600" }}>
-                Report Content
-              </Text>
-              <Pressable
-                onPress={() => {
-                  if (!isSubmittingReport) {
-                    setReportModalVisible(false);
-                    setReportReason("");
-                    setSelectedReportOption(null);
-                    setReportError(null);
-                  }
-                }}
-                style={{ padding: 4 }}
-              >
-                <Ionicons name="close" size={24} color="#fff" />
-              </Pressable>
-            </View>
-
-            <Text style={{ color: "#ccc", fontSize: 14, marginBottom: 16 }}>
-              Why are you reporting this content?
-            </Text>
-
-            {[
-              { id: "spam", label: "Spam or misleading" },
-              { id: "harassment", label: "Harassment or bullying" },
-              { id: "hate", label: "Hate speech" },
-              { id: "violence", label: "Violence or dangerous acts" },
-              { id: "sexual", label: "Sexual content" },
-              { id: "copyright", label: "Copyright infringement" },
-              { id: "other", label: "Other (please specify)" },
-            ].map((option) => {
-              const selected = selectedReportOption === option.id;
-              return (
-                <Pressable
-                  key={option.id}
-                  onPress={() => {
-                    setSelectedReportOption(option.id);
-                    if (option.id !== "other") setReportReason(option.label);
-                    else setReportReason("");
-                  }}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    marginVertical: 4,
-                    borderRadius: 8,
-                    backgroundColor: selected
-                      ? "rgba(255, 59, 48, 0.1)"
-                      : "rgba(255,255,255,0.05)",
-                    borderWidth: 1,
-                    borderColor: selected ? "#ff3b30" : "transparent",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: selected ? "#ff6b6b" : "#fff",
-                      fontSize: 14,
-                    }}
-                  >
-                    {option.label}
-                  </Text>
-                  {selected && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color="#ff3b30"
-                    />
-                  )}
-                </Pressable>
-              );
-            })}
-
-            {selectedReportOption === "other" && (
-              <TextInput
-                value={reportReason}
-                onChangeText={setReportReason}
-                placeholder="Please specify..."
-                placeholderTextColor="#666"
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#333",
-                  borderRadius: 8,
-                  padding: 12,
-                  color: "#fff",
-                  backgroundColor: "rgba(255,255,255,0.05)",
-                  marginTop: 12,
-                  minHeight: 80,
-                  textAlignVertical: "top",
-                }}
-                multiline
-                numberOfLines={3}
-              />
-            )}
-
-            {reportError && (
-              <Text style={{ color: "#ff6b6b", fontSize: 14, marginTop: 12 }}>
-                {reportError}
-              </Text>
-            )}
-
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 24 }}>
-              <Pressable
-                onPress={() => {
-                  if (!isSubmittingReport) {
-                    setReportModalVisible(false);
-                    setReportReason("");
-                    setSelectedReportOption(null);
-                    setReportError(null);
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  backgroundColor: "rgba(255,255,255,0.1)",
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
-                >
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={async () => {
-                  if (
-                    !selectedReportOption ||
-                    !reportReason.trim() ||
-                    isSubmittingReport
-                  )
-                    return;
-
-                  setIsSubmittingReport(true);
-                  setReportError(null);
-
-                  try {
-                    // TODO: Implement API call to submit report
-                    // await submitReport(videoId, reportReason, selectedReportOption);
-
-                    // Simulate API call
-                    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-                    setReportModalVisible(false);
-                    setReportReason("");
-                    setSelectedReportOption(null);
-                    setReportError(null);
-
-                    // Show success feedback
-                    alert(
-                      "Report submitted. Thank you for helping keep our community safe."
-                    );
-                  } catch (error) {
-                    setReportError(
-                      "Failed to submit report. Please try again."
-                    );
-                  } finally {
-                    setIsSubmittingReport(false);
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 8,
-                  backgroundColor:
-                    !selectedReportOption ||
-                    !reportReason.trim() ||
-                    isSubmittingReport
-                      ? "rgba(255, 59, 48, 0.3)"
-                      : "#ff3b30",
-                  alignItems: "center",
-                }}
-                disabled={
-                  !selectedReportOption ||
-                  !reportReason.trim() ||
-                  isSubmittingReport
-                }
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
-                >
-                  {isSubmittingReport ? "Submitting..." : "Report"}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        videoId={videoId ?? null}
+        commentId={reportingCommentId}
+        token={token ?? null}
+        onSuccess={() => {
+          setReportModalVisible(false);
+          setReportingCommentId(null);
+        }}
+      />
     </View>
   );
 }

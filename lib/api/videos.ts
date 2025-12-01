@@ -142,6 +142,18 @@ export async function fetchShorts(
   return data.map((video) => normalizeVideo({ ...video, is_short: true }));
 }
 
+/**
+ * Fetch videos saved by the authenticated user
+ */
+export async function fetchSavedVideos(
+  options: FetchVideosOptions = {}
+): Promise<Video[]> {
+  const { limit, page, signal, headers } = options;
+
+  const data = await request("/saved", { limit, page }, { signal, headers });
+  return data.map(normalizeVideo);
+}
+
 export async function fetchRandomVideos(
   options: FetchVideosOptions = {}
 ): Promise<Video[]> {

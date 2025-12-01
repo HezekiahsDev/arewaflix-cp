@@ -402,6 +402,21 @@ export default function ProfileScreen() {
             View Profile
           </Text>
         </Pressable>
+        <Pressable
+          onPress={() => router.push("/see-all/saved")}
+          accessibilityRole="button"
+          accessibilityLabel="Saved videos"
+          className="px-4 py-2 mt-3 bg-transparent border border-blue-500 rounded-md"
+          android_ripple={{ color: "rgba(59,130,246,0.08)" }}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+        >
+          <View className="flex-row items-center justify-center">
+            <Ionicons name="bookmark-outline" size={16} color="#3b82f6" />
+            <Text className="ml-2 font-semibold text-center text-blue-500">
+              Saved Videos
+            </Text>
+          </View>
+        </Pressable>
       </View>
 
       <FlatList
@@ -415,7 +430,7 @@ export default function ProfileScreen() {
         renderItem={({ item }) => (
           <View className="w-1/2 p-2">
             <Pressable
-              className="items-center justify-center p-4 overflow-hidden rounded-lg bg-zinc-800/50 border border-zinc-700/30"
+              className="items-center justify-center p-4 overflow-hidden border rounded-lg bg-zinc-800/50 border-zinc-700/30"
               onPress={() => handleProfileOption(item.id)}
               accessibilityRole="button"
               accessibilityLabel={item.title}
@@ -451,7 +466,7 @@ export default function ProfileScreen() {
             className="w-full max-w-md"
           >
             <View
-              className="overflow-hidden rounded-2xl bg-zinc-900/95 shadow-2xl"
+              className="overflow-hidden shadow-2xl rounded-2xl bg-zinc-900/95"
               pointerEvents="auto"
             >
               {/* Header */}
@@ -679,7 +694,7 @@ export default function ProfileScreen() {
             className="w-full max-w-md"
           >
             <View
-              className="overflow-hidden rounded-2xl bg-zinc-900/95 shadow-2xl"
+              className="overflow-hidden shadow-2xl rounded-2xl bg-zinc-900/95"
               pointerEvents="auto"
             >
               {/* Header with Avatar */}

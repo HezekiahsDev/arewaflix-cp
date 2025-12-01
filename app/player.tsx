@@ -1,3 +1,5 @@
+import PlayerDetails from "@/components/PlayerDetails";
+import PlayerVideoContainer from "@/components/PlayerVideoContainer";
 import ReportModal from "@/components/ReportModal";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -14,8 +16,6 @@ import {
   VideoComment,
 } from "@/lib/api/video-interactions";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
-import { Ionicons } from "@expo/vector-icons";
-import Slider from "@react-native-community/slider";
 import {
   Audio,
   AVPlaybackStatus,
@@ -23,9 +23,7 @@ import {
   Video as ExpoVideo,
   InterruptionModeAndroid,
   InterruptionModeIOS,
-  ResizeMode,
 } from "expo-av";
-import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
 import React, {
@@ -36,18 +34,14 @@ import React, {
   useState,
 } from "react";
 import {
-  ActivityIndicator,
   Animated,
   Easing,
-  FlatList,
-  Image,
   Keyboard,
   Platform,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -1155,459 +1149,67 @@ export default function PlayerScreen() {
         backgroundColor="#000"
       />
 
-      <View style={styles.videoContainer}>
-        <ExpoVideo
-          ref={videoRef}
-          style={styles.video}
-          source={{ uri: resolvedUri }}
-          resizeMode={ResizeMode.CONTAIN}
-          shouldPlay
-          volume={1}
-          isMuted={false}
-          usePoster={Boolean(poster)}
-          posterSource={poster ? { uri: poster } : undefined}
-          onPlaybackStatusUpdate={handleStatusUpdate}
-          onFullscreenUpdate={handleFullscreenUpdate}
-          onLoadStart={handleLoadStart}
-          onLoad={handleLoad}
-          onError={handleError}
-        />
+      <PlayerVideoContainer
+        styles={styles}
+        resolvedUri={resolvedUri}
+        poster={poster}
+        videoRef={videoRef}
+        handleStatusUpdate={handleStatusUpdate}
+        handleFullscreenUpdate={handleFullscreenUpdate}
+        handleLoadStart={handleLoadStart}
+        handleLoad={handleLoad}
+        handleError={handleError}
+        isBuffering={isBuffering}
+        bufferInfo={bufferInfo}
+        durationMillis={durationMillis}
+        positionMillis={positionMillis}
+        isLoaded={isLoaded}
+        isPlaying={isPlaying}
+        hasFinished={hasFinished}
+        controlsVisible={controlsVisible}
+        controlsOpacity={controlsOpacity}
+        handleHideControls={handleHideControls}
+        handleShowControls={handleShowControls}
+        displayTitle={displayTitle}
+        handleSeek={handleSeek}
+        handleTogglePlay={handleTogglePlay}
+        handleSeekTo={handleSeekTo}
+        handleSlidingStart={handleSlidingStart}
+        handleSlidingComplete={handleSlidingComplete}
+        handleSliderValueChange={handleSliderValueChange}
+        handleEnterFullscreen={handleEnterFullscreen}
+        handleExitFullscreen={handleExitFullscreen}
+        handleReplay={handleReplay}
+      />
 
-        {isBuffering ? (
-          <View style={styles.bufferOverlay}>
-            <ActivityIndicator size="large" color="#fff" />
-            {bufferInfo.label ? (
-              <Text style={styles.bufferLabel}>{bufferInfo.label}</Text>
-            ) : null}
-            {bufferInfo.bufferedAheadMillis > 0 ? (
-              <Text style={styles.bufferSublabel}>
-                Ready for the next {formatTime(bufferInfo.bufferedAheadMillis)}
-              </Text>
-            ) : null}
-            {bufferInfo.percent > 0 ? (
-              <>
-                <View style={styles.bufferProgressTrack}>
-                  <View
-                    style={[
-                      styles.bufferProgressFill,
-                      {
-                        width: `${Math.min(100, Math.max(0, Math.round(bufferInfo.percent * 100)))}%`,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.bufferPercentLabel}>
-                  {Math.min(
-                    100,
-                    Math.max(0, Math.round(bufferInfo.percent * 100))
-                  )}
-                  %{durationMillis > 0 ? " of video cached" : " loaded"}
-                </Text>
-              </>
-            ) : null}
-          </View>
-        ) : null}
-
-        {videoError ? (
-          <View style={styles.errorOverlay}>
-            <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-            <Text style={styles.errorTitle}>Playback Error</Text>
-            <Text style={styles.errorMessage}>{videoError}</Text>
-            <Pressable
-              style={styles.retryButton}
-              onPress={() => {
-                setVideoError(null);
-                videoRef.current?.replayAsync();
-              }}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        <View style={styles.controlsContainer} pointerEvents="box-none">
-          {controlsVisible ? (
-            <Pressable
-              style={styles.overlayBackground}
-              onPress={handleHideControls}
-              accessibilityRole="button"
-              accessibilityLabel="Hide controls"
-            />
-          ) : (
-            <Pressable
-              style={styles.overlayShowTrigger}
-              onPress={handleShowControls}
-              accessibilityRole="button"
-              accessibilityLabel="Show controls"
-            />
-          )}
-
-          <Animated.View
-            pointerEvents={controlsVisible ? "auto" : "none"}
-            style={[styles.controlsOverlay, { opacity: controlsOpacity }]}
-          >
-            <View style={styles.contentWrapper}>
-              <View style={styles.overlayHeader}>
-                <Text style={styles.overlayTitleCentered} numberOfLines={1}>
-                  {displayTitle}
-                </Text>
-                <Pressable
-                  style={styles.dismissButton}
-                  onPress={
-                    isFullscreen ? handleExitFullscreen : () => router.back()
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    isFullscreen ? "Exit fullscreen" : "Close video"
-                  }
-                >
-                  <Ionicons name="close" size={22} color="#fff" />
-                </Pressable>
-              </View>
-
-              <View style={styles.overlayCenterRow}>
-                {hasFinished ? (
-                  <Pressable
-                    style={styles.overlayReplayButton}
-                    onPress={handleReplay}
-                    accessibilityRole="button"
-                    accessibilityLabel="Replay video"
-                  >
-                    <Ionicons name="refresh" size={36} color="#fff" />
-                    <Text style={styles.overlayReplayText}>Replay</Text>
-                  </Pressable>
-                ) : (
-                  <>
-                    <Pressable
-                      style={styles.overlayIconButton}
-                      onPress={() => handleSeek(-10_000)}
-                      accessibilityRole="button"
-                      accessibilityLabel="Seek backward 10 seconds"
-                      disabled={!isLoaded}
-                    >
-                      <Ionicons name="play-back" size={30} color="#fff" />
-                      <Text style={styles.overlayIconCaption}>10s</Text>
-                    </Pressable>
-                    <Pressable
-                      style={styles.overlayPlayButton}
-                      onPress={handleTogglePlay}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        isPlaying ? "Pause video" : "Play video"
-                      }
-                      disabled={!isLoaded}
-                    >
-                      <Ionicons
-                        name={isPlaying ? "pause" : "play"}
-                        size={36}
-                        color="#fff"
-                      />
-                    </Pressable>
-                    <Pressable
-                      style={styles.overlayIconButton}
-                      onPress={() => handleSeek(10_000)}
-                      accessibilityRole="button"
-                      accessibilityLabel="Seek forward 10 seconds"
-                      disabled={!isLoaded}
-                    >
-                      <Ionicons name="play-forward" size={30} color="#fff" />
-                      <Text style={styles.overlayIconCaption}>10s</Text>
-                    </Pressable>
-                  </>
-                )}
-              </View>
-
-              <LinearGradient
-                colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.85)"]}
-                style={styles.overlayBottomGradient}
-              >
-                <Slider
-                  style={styles.progressSlider}
-                  value={progressValue}
-                  minimumValue={0}
-                  maximumValue={
-                    durationMillis > 0
-                      ? durationMillis
-                      : Math.max(positionMillis + 1, 1)
-                  }
-                  minimumTrackTintColor="#38bdf8"
-                  maximumTrackTintColor="rgba(255,255,255,0.25)"
-                  thumbTintColor="#38bdf8"
-                  disabled={!isLoaded}
-                  onSlidingStart={handleSlidingStart}
-                  onSlidingComplete={handleSlidingComplete}
-                  onValueChange={handleSliderValueChange}
-                />
-                <View style={styles.overlayBottomRow}>
-                  <Text style={styles.progressLabel}>
-                    {formatTime(progressValue)}
-                  </Text>
-                  <View style={styles.overlayBottomRight}>
-                    <Text style={styles.progressLabel}>
-                      {formatTime(durationMillis)}
-                    </Text>
-                    <Pressable
-                      style={styles.fullscreenButton}
-                      onPress={handleEnterFullscreen}
-                      accessibilityRole="button"
-                      accessibilityLabel="Enter fullscreen"
-                      disabled={!isLoaded}
-                    >
-                      <Ionicons name="expand" size={22} color="#fff" />
-                    </Pressable>
-                  </View>
-                </View>
-              </LinearGradient>
-            </View>
-          </Animated.View>
-        </View>
-      </View>
-
-      <View style={styles.detailsContainer}>
-        <Text style={styles.title}>{displayTitle}</Text>
-        <View style={styles.socialRow}>
-          <Pressable
-            style={[styles.socialButton, isLiked && styles.socialButtonActive]}
-            onPress={handleLikePress}
-          >
-            <Ionicons
-              name={isLiked ? "heart" : "heart-outline"}
-              size={18}
-              color={isLiked ? "#ff3b30" : "#fff"}
-              style={{ marginBottom: 4 }}
-            />
-            <Text style={styles.socialLabel}>{isLiked ? "Liked" : "Like"}</Text>
-            <Text style={styles.socialCount}>{likes}</Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.socialButton,
-              isDisliked && styles.socialButtonActive,
-            ]}
-            onPress={handleDislikePress}
-          >
-            <Ionicons
-              name={isDisliked ? "thumbs-down" : "thumbs-down-outline"}
-              size={18}
-              color={isDisliked ? "#ff3b30" : "#fff"}
-              style={{ marginBottom: 4 }}
-            />
-            <Text style={styles.socialLabel}>
-              {isDisliked ? "Disliked" : "Dislike"}
-            </Text>
-            <Text style={styles.socialCount}>{dislikes}</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.socialButton, isSaved && styles.socialButtonActive]}
-            onPress={handleSavePress}
-          >
-            <View style={{ marginBottom: 4 }}>
-              <SaveIcon
-                size={18}
-                color={isSaved ? "#007AFF" : "#fff"}
-                filled={isSaved}
-              />
-            </View>
-            <Text style={styles.socialLabel}>{isSaved ? "Saved" : "Save"}</Text>
-          </Pressable>
-          <Pressable
-            style={styles.socialButton}
-            onPress={() => handleReportPress()}
-          >
-            <View style={{ marginBottom: 4 }}>
-              <ReportIcon size={18} color="#fff" />
-            </View>
-            <Text style={styles.socialLabel}>Report</Text>
-          </Pressable>
-        </View>
-
-        {likesError && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="warning-outline" size={16} color="#f59e0b" />
-            <Text style={styles.errorBannerText}>{likesError}</Text>
-          </View>
-        )}
-
-        <View style={styles.commentsSection}>
-          <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
-          <View style={styles.commentInputRow}>
-            <TextInput
-              value={commentDraft}
-              onChangeText={setCommentDraft}
-              placeholder="Add a public comment"
-              placeholderTextColor="rgba(255,255,255,0.4)"
-              style={styles.commentInput}
-              multiline
-              returnKeyType="done"
-              blurOnSubmit
-              onSubmitEditing={() => Keyboard.dismiss()}
-            />
-            <Pressable
-              style={[
-                styles.commentButton,
-                (!commentDraft.trim() || isPostingComment || !token) &&
-                  styles.commentButtonDisabled,
-              ]}
-              onPress={handleSubmitComment}
-              disabled={
-                !commentDraft.trim().length || isPostingComment || !token
-              }
-            >
-              <Text style={styles.commentButtonText}>
-                {isPostingComment ? "Posting..." : "Post"}
-              </Text>
-            </Pressable>
-          </View>
-
-          {commentsError && (
-            <View style={styles.errorBanner}>
-              <Ionicons name="warning-outline" size={16} color="#f59e0b" />
-              <Text style={styles.errorBannerText}>{commentsError}</Text>
-            </View>
-          )}
-
-          {isLoadingComments ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : comments.length ? (
-            <FlatList
-              data={comments}
-              keyExtractor={(item, index) => `${item.id}-${index}`}
-              contentContainerStyle={styles.commentList}
-              renderItem={({ item }) => {
-                const avatarUri = resolveAvatarUri(item.avatar);
-                return (
-                  <View style={styles.commentBubble}>
-                    <View
-                      style={[
-                        styles.commentHeader,
-                        { justifyContent: "space-between" },
-                      ]}
-                    >
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 10,
-                        }}
-                      >
-                        <Image
-                          source={{
-                            uri: avatarUri || "https://via.placeholder.com/32",
-                          }}
-                          style={styles.commentAvatar}
-                        />
-                        <View style={styles.commentHeaderInfo}>
-                          <View style={styles.commentUserRow}>
-                            <Text style={styles.commentUsername}>
-                              {item.username}
-                            </Text>
-                            {item.verified === 1 && (
-                              <Ionicons
-                                name="checkmark-circle"
-                                size={14}
-                                color="#38bdf8"
-                                style={styles.verifiedBadge}
-                              />
-                            )}
-                          </View>
-                          <Text style={styles.commentTime}>
-                            {new Date(item.time * 1000).toLocaleString()}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Pressable
-                        onPress={() => handleReportPress(String(item.id))}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          paddingVertical: 8,
-                          paddingHorizontal: 10,
-                          borderRadius: 8,
-                          backgroundColor: "transparent",
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Report comment"
-                      >
-                        <ReportIcon size={20} color="#ff3b30" />
-                        <Text
-                          style={{
-                            color: "#ff3b30",
-                            fontSize: 13,
-                            fontWeight: "700",
-                            marginLeft: 10,
-                          }}
-                        >
-                          Report
-                        </Text>
-                      </Pressable>
-                    </View>
-                    <Text style={styles.commentText}>{item.text}</Text>
-
-                    {/* Comment Actions */}
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        marginTop: 8,
-                        gap: 16,
-                      }}
-                    >
-                      <Pressable
-                        onPress={() => toggleLikeComment(item.id)}
-                        disabled={!token || likingCommentId === String(item.id)}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          padding: 6,
-                          opacity:
-                            !token || likingCommentId === String(item.id)
-                              ? 0.5
-                              : 1,
-                        }}
-                      >
-                        <HeartIcon
-                          size={16}
-                          color={
-                            likedCommentIds.has(String(item.id))
-                              ? "#ff2d55"
-                              : "rgba(255,255,255,0.7)"
-                          }
-                        />
-                        <Text
-                          style={{
-                            color: likedCommentIds.has(String(item.id))
-                              ? "#ff2d55"
-                              : "rgba(255,255,255,0.7)",
-                            fontSize: 12,
-                            marginLeft: 6,
-                            fontWeight: "500",
-                          }}
-                        >
-                          {item.likes ?? 0}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                );
-              }}
-              onEndReached={() => {
-                loadMoreComments();
-              }}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={
-                isLoadingMoreComments ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : null
-              }
-            />
-          ) : (
-            <Text style={styles.emptyCommentsText}>
-              Be the first to leave a comment.
-            </Text>
-          )}
-        </View>
-      </View>
+      <PlayerDetails
+        styles={styles}
+        displayTitle={displayTitle}
+        likes={likes}
+        dislikes={dislikes}
+        isLiked={isLiked}
+        isDisliked={isDisliked}
+        isSaved={isSaved}
+        handleLikePress={handleLikePress}
+        handleDislikePress={handleDislikePress}
+        handleSavePress={handleSavePress}
+        handleReportPress={handleReportPress}
+        likesError={likesError}
+        comments={comments}
+        commentDraft={commentDraft}
+        setCommentDraft={setCommentDraft}
+        handleSubmitComment={handleSubmitComment}
+        commentsError={commentsError}
+        isLoadingComments={isLoadingComments}
+        isPostingComment={isPostingComment}
+        isLoadingMoreComments={isLoadingMoreComments}
+        loadMoreComments={loadMoreComments}
+        toggleLikeComment={toggleLikeComment}
+        likedCommentIds={likedCommentIds}
+        likingCommentId={likingCommentId}
+        resolveAvatarUri={resolveAvatarUri}
+        token={token}
+      />
 
       <ReportModal
         visible={reportModalVisible}

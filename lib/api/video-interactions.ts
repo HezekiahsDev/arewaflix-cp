@@ -84,6 +84,58 @@ export type CommentReactionResponse = {
 };
 
 /**
+ * Fetch the authenticated user's reaction for a specific comment
+ * Returns payload shape like: { data: { reaction: "like" | "null" } }
+ */
+export type CommentUserReactionResponse = {
+  data: {
+    reaction: string | null;
+  };
+};
+
+export async function fetchCommentReaction(
+  videoId: string | number,
+  commentId: string | number,
+  token: string,
+  signal?: AbortSignal
+): Promise<CommentUserReactionResponse> {
+  const url = `${API_BASE_URL}/api/v1/videos/${videoId}/comments/${commentId}/reaction`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  const text = await response.text();
+  let payload: any;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch comment reaction: ${response.status} ${response.statusText} - ${text}`
+      );
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch comment reaction: ${response.status} ${response.statusText} - ${JSON.stringify(
+        payload
+      )}`
+    );
+  }
+
+  return payload as CommentUserReactionResponse;
+}
+
+/**
  * View tracking response
  */
 export type ViewResponse = {

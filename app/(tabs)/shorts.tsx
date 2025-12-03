@@ -27,11 +27,6 @@ import ShortsCommentModal from "@/components/ShortsCommentModal";
 import { useAuth } from "@/context/AuthContext";
 // comment modal logic moved to components/ShortsCommentModal.tsx
 import {
-  fetchVideoSaved,
-  saveVideo,
-  unsaveVideo,
-} from "@/lib/api/video-interactions";
-import {
   Video as VideoModel,
   fetchShorts,
   getVideosErrorMessage,
@@ -94,17 +89,6 @@ async function resolvePlayableSource(
 
   return null;
 }
-
-type ShortPlayerCardProps = {
-  item: PlayableShort;
-  isActive: boolean;
-  topInset: number;
-  bottomInset: number;
-  onOpenComments: (videoId: string) => void;
-  onReport: (videoId: string) => void;
-  onToggleSave: (videoId: string, isSaved: boolean) => void;
-  isSaved: boolean;
-};
 
 function formatTime(millis: number): string {
   if (!Number.isFinite(millis) || millis < 0) {
@@ -198,12 +182,6 @@ export default function ShortsScreen() {
   // Report modal state
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportingVideoId, setReportingVideoId] = useState<string | null>(null);
-  const [reportingCommentId, setReportingCommentId] = useState<string | null>(
-    null
-  );
-
-  // Saved videos state (local for demo - should be persisted)
-  const [savedVideoIds, setSavedVideoIds] = useState<Set<string>>(new Set());
 
   const COMMENTS_PAGE_LIMIT = 20;
 
@@ -222,60 +200,18 @@ export default function ShortsScreen() {
     setSelectedVideoId(null);
   }, []);
 
-  // Handle opening report modal (for video or comment)
+  // Handle opening report modal (for video reports only)
   const handleReport = useCallback((videoId?: string, commentId?: string) => {
+    // Comment reports are now handled inside ShortsCommentModal
+    if (commentId) return;
     setReportingVideoId(videoId ?? null);
-    setReportingCommentId(commentId ?? null);
     setReportModalVisible(true);
   }, []);
-
-  // Handle toggle save
-  const handleToggleSave = useCallback(
-    (videoId: string, currentlySaved: boolean) => {
-      setSavedVideoIds((prev) => {
-        const newSet = new Set(prev);
-        if (currentlySaved) {
-          newSet.delete(videoId);
-        } else {
-          newSet.add(videoId);
-        }
-        return newSet;
-      });
-      // Optimistic update already applied above — now call API when authenticated
-      (async () => {
-        if (!videoId) return;
-        // get latest token from closure
-        // `token` is available from `useAuth()` in this component
-        if (!token) {
-          // Can't persist without auth; keep local state as-is
-          return;
-        }
-
-        try {
-          if (!currentlySaved) {
-            await saveVideo(videoId, token);
-          } else {
-            await unsaveVideo(videoId, token);
-          }
-        } catch (err) {
-          // Revert optimistic change on error
-          setSavedVideoIds((prev) => {
-            const next = new Set(prev);
-            if (currentlySaved) next.add(videoId);
-            else next.delete(videoId);
-            return next;
-          });
-          if (__DEV__) console.warn("Failed to toggle save for short:", err);
-        }
-      })();
-    },
-    [token]
-  );
 
   // Lower threshold to make activation a bit more permissive for shorter screens,
   // and add logging to help trace active index changes during debugging.
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
-  const onViewableItemsChanged = useRef(
+  const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
       const firstVisible = viewableItems.find(
         (item) => typeof item.index === "number"
@@ -283,8 +219,9 @@ export default function ShortsScreen() {
       if (firstVisible && typeof firstVisible.index === "number") {
         setActiveIndex(firstVisible.index);
       }
-    }
-  ).current;
+    },
+    []
+  );
 
   const hydrateShorts = useCallback(
     async (videos: VideoModel[], signal?: AbortSignal) => {
@@ -365,32 +302,6 @@ export default function ShortsScreen() {
         setShorts(playable);
         setUnsupportedCount(unsupported);
         setActiveIndex(0);
-
-        // If authenticated, fetch persisted saved state for returned shorts
-        if (token && playable.length) {
-          try {
-            const results = await Promise.allSettled(
-              playable.map((p) =>
-                fetchVideoSaved(p.video.id, token, controller.signal)
-              )
-            );
-
-            const ids = new Set<string>();
-            results.forEach((r, idx) => {
-              if (r.status === "fulfilled") {
-                const val = (r as PromiseFulfilledResult<boolean>).value;
-                if (val === true) {
-                  ids.add(playable[idx].video.id);
-                }
-              }
-            });
-
-            setSavedVideoIds(ids);
-          } catch (err) {
-            if (__DEV__)
-              console.warn("Failed to fetch saved states for shorts:", err);
-          }
-        }
       } catch (err) {
         if (controller.signal.aborted) {
           return;
@@ -425,7 +336,8 @@ export default function ShortsScreen() {
     return () => {
       requestRef.current?.abort();
     };
-  }, [loadShorts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle scrolling to specific video when videoId param is provided
   useEffect(() => {
@@ -446,6 +358,13 @@ export default function ShortsScreen() {
     }
   }, [params.videoId, shorts]);
 
+  // Cleanup function to ensure proper unmounting
+  useEffect(() => {
+    return () => {
+      requestRef.current?.abort();
+    };
+  }, []);
+
   const handleRefresh = useCallback(() => {
     void loadShorts(true);
   }, [loadShorts]);
@@ -465,7 +384,6 @@ export default function ShortsScreen() {
   const renderItem = useCallback(
     ({ item, index }: { item: PlayableShort; index: number }) => {
       const isItemActive = isFocused && index === activeIndex;
-      const isItemSaved = savedVideoIds.has(item.video.id);
 
       return (
         <View style={{ height: itemHeight, width: "100%" }}>
@@ -476,8 +394,6 @@ export default function ShortsScreen() {
             bottomInset={insets.bottom}
             onOpenComments={handleOpenComments}
             onReport={handleReport}
-            onToggleSave={handleToggleSave}
-            isSaved={isItemSaved}
           />
         </View>
       );
@@ -490,9 +406,21 @@ export default function ShortsScreen() {
       itemHeight,
       handleOpenComments,
       handleReport,
-      handleToggleSave,
-      savedVideoIds,
     ]
+  );
+
+  const keyExtractor = useCallback(
+    (item: PlayableShort, index: number) => `${item.video.id}-${index}`,
+    []
+  );
+
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: itemHeight,
+      offset: itemHeight * index,
+      index,
+    }),
+    [itemHeight]
   );
 
   // (dev logging removed)
@@ -830,7 +758,7 @@ export default function ShortsScreen() {
         ref={flatListRef}
         data={shorts}
         renderItem={renderItem}
-        keyExtractor={(item) => item.video.id}
+        keyExtractor={keyExtractor}
         pagingEnabled
         snapToAlignment="start"
         decelerationRate="fast"
@@ -839,16 +767,17 @@ export default function ShortsScreen() {
         refreshing={refreshing}
         viewabilityConfig={viewabilityConfig}
         onViewableItemsChanged={onViewableItemsChanged}
-        getItemLayout={(_, index) => ({
-          length: itemHeight,
-          offset: itemHeight * index,
-          index,
-        })}
+        getItemLayout={getItemLayout}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
         windowSize={3}
         removeClippedSubviews={Platform.OS === "android"}
         updateCellsBatchingPeriod={100}
+        scrollEventThrottle={16}
+        overScrollMode="never"
+        bounces={false}
+        keyboardShouldPersistTaps="never"
+        keyboardDismissMode="on-drag"
         onScrollToIndexFailed={(info) => {
           // Fallback: scroll to offset if index fails
           const wait = new Promise((resolve) => setTimeout(resolve, 500));
@@ -867,22 +796,19 @@ export default function ShortsScreen() {
         videoId={selectedVideoId}
         token={token}
         onClose={handleCloseComments}
-        onReport={handleReport}
       />
 
+      {/* Report Modal - now only for video reports */}
       <ReportModal
         visible={reportModalVisible}
         onClose={() => {
           setReportModalVisible(false);
-          setReportingCommentId(null);
           setReportingVideoId(null);
         }}
         videoId={reportingVideoId}
-        commentId={reportingCommentId}
-        token={token ?? null}
+        token={token}
         onSuccess={() => {
           setReportModalVisible(false);
-          setReportingCommentId(null);
           setReportingVideoId(null);
         }}
       />

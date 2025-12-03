@@ -17,11 +17,26 @@ import {
   View,
 } from "react-native";
 
+// Utility: quick availability check for video URL to help diagnose iOS errors
+async function checkUrlAvailability(uri: string) {
+  try {
+    // Use HEAD where possible to avoid downloading body
+    const res = await fetch(uri, { method: "HEAD" });
+    return {
+      ok: res.ok,
+      status: res.status,
+      redirected: res.redirected,
+      url: res.url,
+      headers: Object.fromEntries((res.headers as any)?.entries?.() || []),
+    };
+  } catch (err) {
+    throw err;
+  }
+}
+
 import {
   CommentIcon,
   HeartIcon,
-  ReportIcon,
-  SaveIcon,
   VolumeIcon,
   VolumeOffIcon,
 } from "@/components/shorts/Icons";
@@ -51,8 +66,6 @@ type ShortPlayerCardProps = {
   bottomInset: number;
   onOpenComments: (videoId: string) => void;
   onReport: (videoId: string) => void;
-  onToggleSave: (videoId: string, isSaved: boolean) => void;
-  isSaved: boolean;
 };
 
 function formatTime(millis: number): string {
@@ -129,8 +142,6 @@ export default React.memo(
     bottomInset,
     onOpenComments,
     onReport,
-    onToggleSave,
-    isSaved,
   }: ShortPlayerCardProps) {
     const { user, token } = useAuth();
     const videoRef = useRef<ExpoVideo | null>(null);
@@ -202,16 +213,21 @@ export default React.memo(
     const lastProgressPct = useRef<number>(-1);
 
     const videoId = item.video.id;
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
       if (!isActive || !videoId) return;
 
+      // Abort any pending requests from this component
+      abortControllerRef.current?.abort();
       const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       const loadInteractions = async () => {
         setIsLoadingLikes(true);
         try {
           const likesResp = await fetchVideoLikes(videoId, controller.signal);
+          if (controller.signal.aborted) return;
           setLikes(likesResp.data.likes || 0);
 
           if (token) {
@@ -220,6 +236,7 @@ export default React.memo(
               token,
               controller.signal
             );
+            if (controller.signal.aborted) return;
             setIsLiked(reactionResp.data.reaction === 1);
           }
 
@@ -228,6 +245,7 @@ export default React.memo(
             limit: 1,
             signal: controller.signal,
           });
+          if (controller.signal.aborted) return;
           setComments(commentsResp.data || []);
         } catch (error) {
           if (!controller.signal.aborted && __DEV__) {
@@ -309,10 +327,33 @@ export default React.memo(
     useEffect(() => {
       const player = videoRef.current;
       if (!player) return;
-      if (isActive && !hasError) {
-        (player as any).setIsMutedAsync?.(isMuted).catch(() => {});
-        player.playAsync().catch(() => {});
-      } else player.pauseAsync().catch(() => {});
+
+      let isMounted = true;
+
+      const updatePlayback = async () => {
+        try {
+          if (!isMounted) return;
+
+          if (isActive && !hasError) {
+            if (player.setIsMutedAsync) {
+              await player.setIsMutedAsync(isMuted).catch(() => {});
+            }
+            if (isMounted) {
+              await player.playAsync().catch(() => {});
+            }
+          } else {
+            await player.pauseAsync().catch(() => {});
+          }
+        } catch (error) {
+          // Silent catch - component may have unmounted
+        }
+      };
+
+      updatePlayback();
+
+      return () => {
+        isMounted = false;
+      };
     }, [isActive, hasError, isMuted, item.source]);
 
     useEffect(() => {
@@ -321,6 +362,16 @@ export default React.memo(
         if (centerHideTimeout.current) {
           clearTimeout(centerHideTimeout.current);
           centerHideTimeout.current = null;
+        }
+        if (doubleTapTimeout.current) {
+          clearTimeout(doubleTapTimeout.current);
+          doubleTapTimeout.current = null;
+        }
+        // Cleanup video ref on unmount
+        const player = videoRef.current;
+        if (player) {
+          player.pauseAsync().catch(() => {});
+          player.unloadAsync?.().catch(() => {});
         }
       };
     }, []);
@@ -399,10 +450,24 @@ export default React.memo(
       [hasError]
     );
 
-    const handleError = useCallback((err: unknown) => {
-      if (__DEV__) console.warn("Video onError", err);
-      setHasError("Playback error");
-    }, []);
+    const handleError = useCallback(
+      (err: unknown) => {
+        if (__DEV__) console.warn("Video onError", err);
+
+        // Try a lightweight availability check to surface HTTP/TLS/redirect problems
+        (async () => {
+          try {
+            const info = await checkUrlAvailability(item.source.uri);
+            if (__DEV__) console.warn("Video URL availability:", info);
+          } catch (e) {
+            if (__DEV__) console.warn("Video URL check failed:", e);
+          }
+        })();
+
+        setHasError("Playback error");
+      },
+      [item.source.uri]
+    );
 
     const togglePlayPause = useCallback(() => {
       const player = videoRef.current;
@@ -451,6 +516,7 @@ export default React.memo(
           style={styles.fullScreen}
           onPress={handleDoubleTap}
           android_ripple={{ color: "rgba(255,255,255,0.02)" }}
+          delayLongPress={500}
         >
           <ExpoVideo
             key={reloadKey}
@@ -662,6 +728,9 @@ export default React.memo(
           <Pressable
             style={{ alignItems: "center", marginBottom: 18 }}
             onPress={() => onOpenComments(videoId)}
+            accessibilityRole="button"
+            accessibilityLabel={`View comments (${commentsCount})`}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <CommentIcon size={30} color="#fff" />
             <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
@@ -671,19 +740,9 @@ export default React.memo(
 
           <Pressable
             style={{ alignItems: "center", marginBottom: 18 }}
-            onPress={() => onToggleSave(videoId, isSaved)}
-          >
-            <SaveIcon size={28} color="#fff" filled={isSaved} />
-            <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
-              Save
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={{ alignItems: "center", marginBottom: 18 }}
             onPress={() => onReport(videoId)}
           >
-            <ReportIcon size={26} color="#fff" />
+            <Ionicons name="flag-outline" size={26} color="#ff3b30" />
             <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
               Report
             </Text>
@@ -709,7 +768,9 @@ export default React.memo(
   (prev, next) =>
     prev.isActive === next.isActive &&
     prev.item.video.id === next.item.video.id &&
+    prev.item.source.uri === next.item.source.uri &&
     prev.topInset === next.topInset &&
     prev.bottomInset === next.bottomInset &&
-    prev.onOpenComments === next.onOpenComments
+    prev.onOpenComments === next.onOpenComments &&
+    prev.onReport === next.onReport
 );

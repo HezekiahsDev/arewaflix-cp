@@ -253,7 +253,7 @@ export default function ProfileScreen() {
           case "option-5": // About
             Alert.alert(
               "About Arewaflix",
-              `Version: ${Constants.expoConfig?.version || "1.0.0"}\n\nArewaflix brings you the best of Hausa entertainment.\n\nDeveloper: ${Constants.expoConfig?.owner || "Arewaflix Team"}`,
+              `Version: ${Constants.expoConfig?.version || "1.0.0"}\n\nArewaflix brings you the best of Hausa entertainment.\n\nDeveloper: Vehance IT\n\n© ${new Date().getFullYear()} Arewaflix. All rights reserved.`,
               [{ text: "OK" }]
             );
             break;

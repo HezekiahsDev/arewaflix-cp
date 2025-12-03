@@ -15,7 +15,7 @@ export const API_BASE_URL = getSanitizedBaseUrl(
 // Helper function to get more specific error messages
 const getNetworkErrorMessage = (error: any): string => {
   if (error.message?.includes("Network request failed")) {
-    return `Cannot connect to server at ${API_BASE_URL}. Please check:\n• Server is running\n• Network connection\n• Firewall settings\n• If using simulator, try using your computer's IP address instead of localhost`;
+    return `Cannot connect`;
   }
   return error.message || "Unknown network error";
 };

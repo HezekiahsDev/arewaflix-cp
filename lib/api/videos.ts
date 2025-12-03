@@ -760,7 +760,7 @@ export function getVideosErrorMessage(error: unknown): string {
     typeof error.message === "string" &&
     error.message.toLowerCase().includes("network request failed")
   ) {
-    return `Network request failed. Make sure the videos service at ${VIDEOS_API_BASE_URL} is reachable from this device. If you're using Expo Go, replace \"localhost\" with your computer's IP address or start the backend server.`;
+    return `Network request failed. Please check your internet connection and try again.`;
   }
 
   if (error instanceof Error) {

@@ -3,6 +3,7 @@ import PlayerVideoContainer from "@/components/PlayerVideoContainer";
 import ReportModal from "@/components/ReportModal";
 import { useAuth } from "@/context/AuthContext";
 import {
+  fetchCommentReaction,
   fetchUserReaction,
   fetchVideoComments,
   fetchVideoLikes,
@@ -571,6 +572,44 @@ export default function PlayerScreen() {
               // Not showing error to user as this is not critical
             }
           }
+          // Also fetch per-comment reactions for initial comments page
+          try {
+            const commentsForReactions =
+              commentsResponse.status === "fulfilled"
+                ? commentsResponse.value.data
+                : [];
+            if (commentsForReactions && commentsForReactions.length) {
+              const r = await Promise.all(
+                commentsForReactions.map(async (c) => {
+                  try {
+                    const resp = await fetchCommentReaction(
+                      videoId,
+                      c.id,
+                      token,
+                      controller.signal
+                    );
+                    return {
+                      id: String(c.id),
+                      reaction: resp?.data?.reaction ?? null,
+                    };
+                  } catch (e) {
+                    return { id: String(c.id), reaction: null };
+                  }
+                })
+              );
+
+              setLikedCommentIds((prev) => {
+                const next = new Set(prev);
+                for (const it of r) {
+                  if (it.reaction === "like") next.add(it.id);
+                  else next.delete(it.id);
+                }
+                return next;
+              });
+            }
+          } catch (e) {
+            // ignore per-comment reaction failures
+          }
         }
       } catch (error) {
         // Unexpected error in loading comments/likes
@@ -765,25 +804,63 @@ export default function PlayerScreen() {
     async (deltaMillis: number) => {
       const video = videoRef.current;
       if (!video || !isLoaded) {
+        console.log("Seek failed: video not ready", {
+          video: !!video,
+          isLoaded,
+        });
+        return;
+      }
+
+      if (isBuffering) {
+        console.log("Seek failed: video is buffering");
         return;
       }
 
       registerInteraction();
 
-      const current = successStatus?.positionMillis ?? 0;
-      const duration = successStatus?.durationMillis ?? durationMillis;
-      const target = Math.min(
-        Math.max(current + deltaMillis, 0),
-        duration > 0 ? duration : current + deltaMillis
-      );
+      // Use current position from state for more reliable seeking
+      const current = positionMillis || successStatus?.positionMillis || 0;
+      const duration = successStatus?.durationMillis || durationMillis || 0;
+
+      if (duration <= 0) {
+        console.log("Seek failed: invalid duration", { duration });
+        return;
+      }
+
+      const target = Math.min(Math.max(current + deltaMillis, 0), duration);
+
+      console.log("Seeking", {
+        deltaMillis,
+        current,
+        duration,
+        target,
+        positionMillis,
+      });
 
       try {
-        await video.setPositionAsync(target);
+        // Temporarily set seeking state to prevent conflicts
+        setIsSeeking(true);
+        await video.setPositionAsync(target, {
+          toleranceMillisBefore: 1000,
+          toleranceMillisAfter: 1000,
+        });
+        console.log("Seek successful to", target);
+        // The position will be updated via status callback
       } catch (error) {
-        // Failed to seek
+        console.error("Seek failed:", error);
+      } finally {
+        // Reset seeking state after a brief delay
+        setTimeout(() => setIsSeeking(false), 100);
       }
     },
-    [durationMillis, isLoaded, registerInteraction, successStatus]
+    [
+      durationMillis,
+      isLoaded,
+      isBuffering,
+      positionMillis,
+      registerInteraction,
+      successStatus,
+    ]
   );
 
   const handleSeekTo = useCallback(

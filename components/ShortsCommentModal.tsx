@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -15,18 +14,20 @@ import {
   View,
 } from "react-native";
 
-import { HeartIcon, ReportIcon } from "@/components/shorts/Icons";
+import CommentItem from "@/components/player/CommentItem";
+import ReportModal from "@/components/ReportModal";
 import {
   VideoComment,
+  fetchCommentReaction,
   fetchVideoComments,
   postCommentReaction,
   postVideoComment,
 } from "@/lib/api/video-interactions";
 
-function resolveAvatarUri(avatar?: string): string | undefined {
-  if (!avatar) return undefined;
+function resolveAvatarUri(avatar?: string): string {
+  if (!avatar) return "https://via.placeholder.com/32x32/666666/ffffff?text=U";
   const trimmed = avatar.trim();
-  if (!trimmed) return undefined;
+  if (!trimmed) return "https://via.placeholder.com/32x32/666666/ffffff?text=U";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   // Fallback to placeholder path handled by server; keep simple
   return `https://api.arewaflix.io/${trimmed.replace(/^\/+/, "")}`;
@@ -156,7 +157,6 @@ type Props = {
   videoId: string | null;
   token: string | null | undefined;
   onClose: () => void;
-  onReport: (videoId?: string, commentId?: string) => void;
 };
 
 export default function ShortsCommentModal({
@@ -164,7 +164,6 @@ export default function ShortsCommentModal({
   videoId,
   token,
   onClose,
-  onReport,
 }: Props) {
   const [comments, setComments] = useState<VideoComment[]>([]);
   const [commentDraft, setCommentDraft] = useState("");
@@ -179,6 +178,12 @@ export default function ShortsCommentModal({
     new Set()
   );
   const [likingCommentId, setLikingCommentId] = useState<string | null>(null);
+
+  // Report modal state
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportingCommentId, setReportingCommentId] = useState<string | null>(
+    null
+  );
 
   const COMMENTS_PAGE_LIMIT = 20;
 
@@ -196,6 +201,31 @@ export default function ShortsCommentModal({
         else setComments((prev) => [...prev, ...(resp.data || [])]);
         setCommentsPage(resp.pagination?.page ?? page);
         setCommentsTotalPages(resp.pagination?.totalPages ?? 1);
+        // After loading comments, fetch per-comment user reaction if authenticated
+        if (token && resp.data && resp.data.length) {
+          const reactions = await Promise.all(
+            resp.data.map(async (c) => {
+              try {
+                const r = await fetchCommentReaction(videoId, c.id, token);
+                return {
+                  id: String(c.id),
+                  reaction: r?.data?.reaction ?? null,
+                };
+              } catch (e) {
+                return { id: String(c.id), reaction: null };
+              }
+            })
+          );
+
+          setLikedCommentIds((prev) => {
+            const next = new Set(prev);
+            for (const r of reactions) {
+              if (r.reaction === "like") next.add(r.id);
+              else next.delete(r.id);
+            }
+            return next;
+          });
+        }
       } catch (err) {
         setCommentsError("Failed to load comments.");
       } finally {
@@ -319,19 +349,56 @@ export default function ShortsCommentModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle={
+        Platform.OS === "ios" ? "fullScreen" : "overFullScreen"
+      }
       onRequestClose={onClose}
+      onShow={() => {
+        // Reset any focus issues when modal shows
+        if (Platform.OS === "ios") {
+          setTimeout(() => {
+            // Force a layout update
+          }, 100);
+        }
+      }}
+      onDismiss={() => {
+        // Clean up when modal is dismissed
+        Keyboard.dismiss();
+        if (Platform.OS === "ios") {
+          setTimeout(() => {
+            // Allow parent component to regain focus
+          }, 100);
+        }
+      }}
     >
       <KeyboardAvoidingView
         style={modalStyles.modalContainer}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={60}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 60}
       >
-        <View style={modalStyles.modalHeader}>
+        <View
+          style={[
+            modalStyles.modalHeader,
+            { paddingTop: Platform.OS === "ios" ? 44 : 16 },
+          ]}
+        >
           <Text style={modalStyles.modalTitle}>
             Comments ({comments.length})
           </Text>
-          <Pressable onPress={onClose} style={modalStyles.closeButton}>
+          <Pressable
+            onPress={() => {
+              Keyboard.dismiss();
+              // Small delay to ensure keyboard dismissal completes
+              setTimeout(
+                () => {
+                  onClose();
+                },
+                Platform.OS === "ios" ? 150 : 50
+              );
+            }}
+            style={modalStyles.closeButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Ionicons name="close" size={28} color="#fff" />
           </Pressable>
         </View>
@@ -410,6 +477,8 @@ export default function ShortsCommentModal({
               contentContainerStyle={modalStyles.commentList}
               onEndReached={loadMoreComments}
               onEndReachedThreshold={0.5}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
               ListFooterComponent={
                 isLoadingMoreComments ? (
                   <ActivityIndicator
@@ -419,106 +488,30 @@ export default function ShortsCommentModal({
                   />
                 ) : null
               }
-              renderItem={({ item }) => {
-                const avatarUri = resolveAvatarUri(item.avatar);
-                return (
-                  <View style={modalStyles.commentBubble}>
-                    <View style={modalStyles.commentHeader}>
-                      <Image
-                        source={{
-                          uri: avatarUri || "https://via.placeholder.com/32",
-                        }}
-                        style={modalStyles.commentAvatar}
-                      />
-                      <View style={modalStyles.commentHeaderInfo}>
-                        <View style={modalStyles.commentUserRow}>
-                          <Text style={modalStyles.commentUsername}>
-                            {item.username}
-                          </Text>
-                          {item.verified === 1 && (
-                            <Ionicons
-                              name="checkmark-circle"
-                              size={14}
-                              color="#38bdf8"
-                              style={modalStyles.verifiedBadge}
-                            />
-                          )}
-                        </View>
-                        <Text style={modalStyles.commentTime}>
-                          {new Date(item.time * 1000).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={modalStyles.commentText}>{item.text}</Text>
-
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        justifyContent: "flex-end",
-                        marginTop: 8,
-                        alignItems: "center",
-                        gap: 12,
-                      }}
-                    >
-                      <Pressable
-                        onPress={() => toggleLikeComment(item.id)}
-                        disabled={!token || likingCommentId === String(item.id)}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          padding: 6,
-                          opacity:
-                            !token || likingCommentId === String(item.id)
-                              ? 0.5
-                              : 1,
-                        }}
-                      >
-                        <HeartIcon
-                          size={18}
-                          color={
-                            likedCommentIds.has(String(item.id))
-                              ? "#ff2d55"
-                              : "#fff"
-                          }
-                        />
-                        <Text
-                          style={{ color: "#fff", fontSize: 12, marginLeft: 6 }}
-                        >
-                          {item.likes ?? 0}
-                        </Text>
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() =>
-                          onReport(videoId ?? undefined, String(item.id))
-                        }
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          paddingVertical: 8,
-                          paddingHorizontal: 10,
-                          borderRadius: 8,
-                          backgroundColor: "transparent",
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Report comment"
-                      >
-                        <ReportIcon size={20} color="#ff3b30" />
-                        <Text
-                          style={{
-                            color: "#ff3b30",
-                            fontSize: 13,
-                            fontWeight: "700",
-                            marginLeft: 10,
-                          }}
-                        >
-                          Report
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                );
-              }}
+              renderItem={({ item }) => (
+                <CommentItem
+                  comment={item}
+                  isLiked={likedCommentIds.has(String(item.id))}
+                  onLikePress={toggleLikeComment}
+                  onReportPress={(commentId) => {
+                    setReportingCommentId(commentId);
+                    setReportModalVisible(true);
+                  }}
+                  disabled={!token || likingCommentId === String(item.id)}
+                  resolveAvatarUri={resolveAvatarUri}
+                  styles={{
+                    commentBubble: modalStyles.commentBubble,
+                    commentHeader: modalStyles.commentHeader,
+                    commentAvatar: modalStyles.commentAvatar,
+                    commentHeaderInfo: modalStyles.commentHeaderInfo,
+                    commentUserRow: modalStyles.commentUserRow,
+                    commentUsername: modalStyles.commentUsername,
+                    verifiedBadge: modalStyles.verifiedBadge,
+                    commentTime: modalStyles.commentTime,
+                    commentText: modalStyles.commentText,
+                  }}
+                />
+              )}
             />
           ) : (
             <View style={modalStyles.emptyContainer}>
@@ -564,6 +557,22 @@ export default function ShortsCommentModal({
           </View>
         )}
       </KeyboardAvoidingView>
+
+      {/* Report Modal for comment reports */}
+      <ReportModal
+        visible={reportModalVisible}
+        onClose={() => {
+          setReportModalVisible(false);
+          setReportingCommentId(null);
+        }}
+        videoId={videoId}
+        commentId={reportingCommentId}
+        token={token}
+        onSuccess={() => {
+          setReportModalVisible(false);
+          setReportingCommentId(null);
+        }}
+      />
     </Modal>
   );
 }

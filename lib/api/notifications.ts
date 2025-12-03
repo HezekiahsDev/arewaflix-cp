@@ -67,6 +67,22 @@ export async function getNotifications(
       message: String(text || ""),
     } as NotificationsResponse;
   } catch (error) {
+    // If the error is a network failure (offline), return a friendly
+    // response instead of throwing so callers can handle it gracefully.
+    const message = String(error || "");
+    if (
+      message.toLowerCase().includes("network request failed") ||
+      message.toLowerCase().includes("networkerror")
+    ) {
+      // Log at debug level to avoid noisy console errors while offline.
+      console.debug("Notifications network unavailable:", error);
+      return {
+        success: false,
+        data: [],
+        message: "Network unavailable. Please check your internet connection.",
+      } as NotificationsResponse;
+    }
+
     console.error("❌ Notifications Network Error:", error);
     throw new Error(`Fetching notifications failed: ${String(error)}`);
   }
@@ -155,6 +171,19 @@ export async function markNotificationsSeen(
       message: String(text || ""),
     } as MarkSeenResponse;
   } catch (error) {
+    const message = String(error || "");
+    if (
+      message.toLowerCase().includes("network request failed") ||
+      message.toLowerCase().includes("networkerror")
+    ) {
+      console.debug("Mark notifications network unavailable:", error);
+      return {
+        success: false,
+        message: "Network unavailable. Please check your internet connection.",
+        data: null,
+      } as MarkSeenResponse;
+    }
+
     console.error("❌ Mark Seen Network Error:", error);
     throw new Error(`Mark seen failed: ${String(error)}`);
   }

@@ -28,7 +28,6 @@ export default function LoginScreen() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberDevice, setRememberDevice] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,27 +216,9 @@ export default function LoginScreen() {
                     </View>
                   )}
 
-                  {/* Remember Device & Forgot Password */}
+                  {/* Forgot Password */}
                   <View className="flex-row items-center justify-between mb-8">
-                    <Pressable
-                      onPress={() => setRememberDevice(!rememberDevice)}
-                      className="flex-row items-center"
-                    >
-                      <View
-                        className={`mr-2 h-5 w-5 items-center justify-center rounded border-2 ${
-                          rememberDevice
-                            ? "border-primary bg-primary dark:border-primary-dark dark:bg-primary-dark"
-                            : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"
-                        }`}
-                      >
-                        {rememberDevice && (
-                          <FontAwesome name="check" size={12} color="white" />
-                        )}
-                      </View>
-                      <Text className="text-sm text-text dark:text-text-dark">
-                        Remember this device
-                      </Text>
-                    </Pressable>
+                    <View />
 
                     <Pressable
                       onPress={() => {

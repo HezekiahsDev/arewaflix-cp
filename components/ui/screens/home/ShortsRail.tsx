@@ -1,8 +1,8 @@
 import { Video } from "@/lib/api/videos";
-import { getDurationLabel } from "@/lib/videos/formatters";
+// duration label removed from short rail cards
 import { useRouter } from "expo-router";
 import React from "react";
-import { FlatList, Image, Pressable, Text, View } from "react-native";
+import { FlatList, Image, Pressable } from "react-native";
 
 export type ShortsRailProps = {
   items: Video[];
@@ -33,21 +33,13 @@ export function ShortsRail({ items }: ShortsRailProps) {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ paddingRight: 12 }}
       renderItem={({ item, index }) => {
-        const durationLabel = getDurationLabel(item);
         return (
           <Pressable
             onPress={() => handlePress(item)}
-            className="h-48 w-32 overflow-hidden rounded-2xl border border-border dark:border-border-dark bg-surface-muted dark:bg-surface-muted-dark"
+            className="w-32 h-48 overflow-hidden border rounded-2xl border-border dark:border-border-dark bg-surface-muted dark:bg-surface-muted-dark"
             style={{ marginRight: index === items.length - 1 ? 0 : 12 }}
           >
-            <Image source={{ uri: item.imageUrl }} className="h-full w-full" />
-            {durationLabel ? (
-              <View className="absolute inset-x-2 bottom-2 rounded-full bg-black/60 px-2 py-1">
-                <Text className="text-center text-xs font-semibold text-white">
-                  {durationLabel}
-                </Text>
-              </View>
-            ) : null}
+            <Image source={{ uri: item.imageUrl }} className="w-full h-full" />
           </Pressable>
         );
       }}

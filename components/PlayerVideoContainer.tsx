@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import Slider from "@react-native-community/slider";
 import { Video as ExpoVideo, ResizeMode } from "expo-av";
 import React from "react";
 import {
@@ -144,8 +145,15 @@ export default function PlayerVideoContainer(props: any) {
                 <>
                   <Pressable
                     style={styles.overlayIconButton}
-                    onPress={() => handleSeek(-10_000)}
-                    disabled={!isLoaded}
+                    onPress={() => {
+                      console.log("Seek back pressed", {
+                        isLoaded,
+                        positionMillis,
+                        durationMillis,
+                      });
+                      handleSeek(-10_000);
+                    }}
+                    disabled={!isLoaded || isBuffering}
                   >
                     <Ionicons name="play-back" size={30} color="#fff" />
                     <Text style={styles.overlayIconCaption}>10s</Text>
@@ -163,8 +171,15 @@ export default function PlayerVideoContainer(props: any) {
                   </Pressable>
                   <Pressable
                     style={styles.overlayIconButton}
-                    onPress={() => handleSeek(10_000)}
-                    disabled={!isLoaded}
+                    onPress={() => {
+                      console.log("Seek forward pressed", {
+                        isLoaded,
+                        positionMillis,
+                        durationMillis,
+                      });
+                      handleSeek(10_000);
+                    }}
+                    disabled={!isLoaded || isBuffering}
                   >
                     <Ionicons name="play-forward" size={30} color="#fff" />
                     <Text style={styles.overlayIconCaption}>10s</Text>
@@ -174,9 +189,20 @@ export default function PlayerVideoContainer(props: any) {
             </View>
 
             <View style={styles.overlayBottomGradient}>
-              {/* simplified slider usage */}
+              {/* Progress Slider */}
               <View style={styles.progressSlider}>
-                {/* Placeholder bar — parent manages precise slider interactions */}
+                <Slider
+                  value={progressValue}
+                  minimumValue={0}
+                  maximumValue={durationMillis}
+                  onSlidingStart={handleSlidingStart}
+                  onSlidingComplete={handleSlidingComplete}
+                  onValueChange={handleSliderValueChange}
+                  disabled={!isLoaded}
+                  minimumTrackTintColor="#38bdf8"
+                  maximumTrackTintColor="rgba(255,255,255,0.3)"
+                  thumbTintColor="#38bdf8"
+                />
               </View>
               <View style={styles.overlayBottomRow}>
                 <Text style={styles.progressLabel}>

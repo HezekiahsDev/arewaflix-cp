@@ -16,7 +16,7 @@ interface CommentItemProps {
   onLikePress: (commentId: string | number) => void;
   onReportPress: (commentId: string) => void;
   disabled?: boolean;
-  resolveAvatarUri: (avatar?: string) => string | undefined;
+  resolveAvatarUri: (avatar?: string) => string;
   styles: {
     commentBubble: any;
     commentHeader: any;
@@ -30,7 +30,7 @@ interface CommentItemProps {
   };
 }
 
-export default function CommentItem({
+function CommentItem({
   comment,
   isLiked,
   onLikePress,
@@ -53,7 +53,7 @@ export default function CommentItem({
         >
           <Image
             source={{
-              uri: avatarUri || "https://via.placeholder.com/32",
+              uri: avatarUri,
             }}
             style={styles.commentAvatar}
           />
@@ -128,3 +128,18 @@ export default function CommentItem({
     </View>
   );
 }
+
+function areEqual(prev: CommentItemProps, next: CommentItemProps) {
+  // Fast path: same comment id and same basic rendering props
+  if (prev.comment.id !== next.comment.id) return false;
+  if (prev.comment.text !== next.comment.text) return false;
+  if ((prev.comment.likes || 0) !== (next.comment.likes || 0)) return false;
+  if (prev.isLiked !== next.isLiked) return false;
+  if (prev.disabled !== next.disabled) return false;
+  if (prev.resolveAvatarUri !== next.resolveAvatarUri) return false;
+  // Assume styles object identity is stable in parent; if not, fall back to a cheaper check
+  if (prev.styles !== next.styles) return false;
+  return true;
+}
+
+export default React.memo(CommentItem, areEqual);

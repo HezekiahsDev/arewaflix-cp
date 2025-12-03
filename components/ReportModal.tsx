@@ -7,7 +7,9 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -108,7 +110,11 @@ export default function ReportModal({
       animationType="fade"
       onRequestClose={handleCancel}
     >
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingView
+        style={styles.backdrop}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 0}
+      >
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>Report Content</Text>
@@ -189,7 +195,7 @@ export default function ReportModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

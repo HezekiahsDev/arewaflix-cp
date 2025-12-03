@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -145,16 +145,27 @@ export default function PlayerDetails(props: any) {
             data={comments}
             keyExtractor={(item: any, index: number) => `${item.id}-${index}`}
             contentContainerStyle={styles.commentList}
-            renderItem={({ item }: any) => (
-              <CommentItem
-                comment={item}
-                isLiked={likedCommentIds.has(String(item.id))}
-                onLikePress={toggleLikeComment}
-                onReportPress={handleReportPress}
-                disabled={!token || likingCommentId === String(item.id)}
-                resolveAvatarUri={resolveAvatarUri}
-                styles={styles}
-              />
+            renderItem={useCallback(
+              ({ item }: any) => (
+                <CommentItem
+                  comment={item}
+                  isLiked={likedCommentIds.has(String(item.id))}
+                  onLikePress={toggleLikeComment}
+                  onReportPress={handleReportPress}
+                  disabled={!token || likingCommentId === String(item.id)}
+                  resolveAvatarUri={resolveAvatarUri}
+                  styles={styles}
+                />
+              ),
+              [
+                likedCommentIds,
+                toggleLikeComment,
+                handleReportPress,
+                resolveAvatarUri,
+                styles,
+                token,
+                likingCommentId,
+              ]
             )}
             onEndReached={() => loadMoreComments()}
             onEndReachedThreshold={0.5}

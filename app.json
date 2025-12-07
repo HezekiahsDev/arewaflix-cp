@@ -46,7 +46,7 @@
         },
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": ["remote-notification"],
-        "NSUserTrackingUsageDescription": "We use device analytics to prevent fraud and improve your video recommendations. Your data is never sold to third parties.",
+        "NSUserTrackingUsageDescription": "We use a device identifier solely to prevent fraud and ensure one account per device. Your data is never shared with third parties or used for advertising.",
         "NSPhotoLibraryUsageDescription": "Allow access to upload photos for your profile picture",
         "NSCameraUsageDescription": "Allow camera access to take photos for your profile picture",
         "NSMicrophoneUsageDescription": "Allow microphone access for recording audio in video uploads",
@@ -77,6 +77,7 @@
     "plugins": [
       "expo-router",
       "expo-notifications",
+      "expo-tracking-transparency",
       [
         "expo-build-properties",
         {

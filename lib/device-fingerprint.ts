@@ -1,6 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import {
+  isTrackingAuthorized,
+  requestTrackingPermission,
+} from "./tracking-transparency";
 
 const FINGERPRINT_KEY = "@arewaflix:device_fingerprint";
 
@@ -15,18 +19,30 @@ const FINGERPRINT_KEY = "@arewaflix:device_fingerprint";
  * - installationId from expo-constants (unique per app installation)
  * - Platform OS and version
  * - Random suffix (generated once, stored persistently)
+ *
+ * IMPORTANT: This function requests App Tracking Transparency (ATT) permission on iOS
+ * before generating the fingerprint, as required by Apple's App Store guidelines.
  */
 export async function getDeviceFingerprint(): Promise<string> {
   try {
+    // Request tracking permission on iOS (required for App Store compliance)
+    // This will show the ATT dialog if not yet determined
+    await requestTrackingPermission();
+
     // Check if we already have a stored fingerprint
     const stored = await AsyncStorage.getItem(FINGERPRINT_KEY);
     if (stored) {
       return stored;
     }
 
+    // Check if tracking is authorized
+    const trackingAuthorized = await isTrackingAuthorized();
+
     // Generate a new fingerprint
-    const installationId =
-      Constants.installationId || Constants.sessionId || "unknown";
+    // If tracking is not authorized, we use a limited fingerprint
+    const installationId = trackingAuthorized
+      ? Constants.installationId || Constants.sessionId || "unknown"
+      : "anonymous";
     const platform = Platform.OS;
     const version = Platform.Version;
     const randomSuffix = Math.random().toString(36).substring(2, 15);

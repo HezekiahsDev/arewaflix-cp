@@ -156,6 +156,7 @@ type Props = {
   visible: boolean;
   videoId: string | null;
   token: string | null | undefined;
+  currentUserId: string | null;
   onClose: () => void;
 };
 
@@ -163,6 +164,7 @@ export default function ShortsCommentModal({
   visible,
   videoId,
   token,
+  currentUserId,
   onClose,
 }: Props) {
   const [comments, setComments] = useState<VideoComment[]>([]);
@@ -184,6 +186,7 @@ export default function ShortsCommentModal({
   const [reportingCommentId, setReportingCommentId] = useState<string | null>(
     null
   );
+  const [reportingUserId, setReportingUserId] = useState<string | null>(null);
 
   const COMMENTS_PAGE_LIMIT = 20;
 
@@ -493,8 +496,9 @@ export default function ShortsCommentModal({
                   comment={item}
                   isLiked={likedCommentIds.has(String(item.id))}
                   onLikePress={toggleLikeComment}
-                  onReportPress={(commentId) => {
+                  onReportPress={(commentId, userId) => {
                     setReportingCommentId(commentId);
+                    setReportingUserId(userId);
                     setReportModalVisible(true);
                   }}
                   disabled={!token || likingCommentId === String(item.id)}
@@ -564,13 +568,17 @@ export default function ShortsCommentModal({
         onClose={() => {
           setReportModalVisible(false);
           setReportingCommentId(null);
+          setReportingUserId(null);
         }}
         videoId={videoId}
         commentId={reportingCommentId}
+        userId={reportingUserId}
+        currentUserId={currentUserId}
         token={token}
         onSuccess={() => {
           setReportModalVisible(false);
           setReportingCommentId(null);
+          setReportingUserId(null);
         }}
       />
     </Modal>

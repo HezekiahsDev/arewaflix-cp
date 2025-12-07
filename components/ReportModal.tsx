@@ -1,4 +1,5 @@
 import {
+  blockUser,
   submitCommentReport,
   submitVideoReport,
 } from "@/lib/api/video-interactions";
@@ -22,6 +23,8 @@ type Props = {
   onClose: () => void;
   videoId?: string | null;
   commentId?: string | null;
+  userId?: string | null;
+  currentUserId?: string | null;
   token?: string | null;
   onSuccess?: (isComment: boolean) => void;
 };
@@ -41,6 +44,8 @@ export default function ReportModal({
   onClose,
   videoId,
   commentId,
+  userId,
+  currentUserId,
   token,
   onSuccess,
 }: Props) {
@@ -48,12 +53,14 @@ export default function ReportModal({
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [blockUserChecked, setBlockUserChecked] = useState(false);
 
   const handleCancel = () => {
     if (isSubmitting) return;
     setSelectedOption(null);
     setReason("");
     setError(null);
+    setBlockUserChecked(false);
     onClose();
   };
 
@@ -71,6 +78,11 @@ export default function ReportModal({
           selectedOption,
           token ?? undefined
         );
+
+        // If block user is checked, block the user
+        if (blockUserChecked && userId && token) {
+          await blockUser(userId, token);
+        }
       } else if (videoId) {
         await submitVideoReport(
           videoId,
@@ -84,14 +96,22 @@ export default function ReportModal({
 
       setSelectedOption(null);
       setReason("");
+      setBlockUserChecked(false);
       setIsSubmitting(false);
       onClose();
 
       const isComment = Boolean(commentId);
+      const isBlocked = blockUserChecked;
       Alert.alert(
-        isComment ? "Comment reported" : "Report submitted",
         isComment
-          ? "Report submitted for comment. Thank you for helping keep our community safe."
+          ? isBlocked
+            ? "Comment reported and user blocked"
+            : "Comment reported"
+          : "Report submitted",
+        isComment
+          ? isBlocked
+            ? "Report submitted and user blocked successfully. Thank you for helping keep our community safe."
+            : "Report submitted for comment. Thank you for helping keep our community safe."
           : "Report submitted. Thank you for helping keep our community safe."
       );
 
@@ -164,6 +184,25 @@ export default function ReportModal({
               multiline
               numberOfLines={3}
             />
+          )}
+
+          {commentId && videoId && userId && userId !== currentUserId && (
+            <Pressable
+              onPress={() => setBlockUserChecked(!blockUserChecked)}
+              style={styles.checkboxContainer}
+            >
+              <View style={styles.checkbox}>
+                {blockUserChecked && (
+                  <Ionicons name="checkmark" size={16} color="#ff3b30" />
+                )}
+              </View>
+              <View style={styles.checkboxTextContainer}>
+                <Text style={styles.checkboxText}>Block this user</Text>
+                <Text style={styles.checkboxSubtext}>
+                  You will no longer see comments from this user
+                </Text>
+              </View>
+            </Pressable>
           )}
 
           {error && <Text style={styles.errorText}>{error}</Text>}
@@ -251,6 +290,31 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: "top",
   },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: "#666",
+    borderRadius: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    marginTop: 2,
+  },
+  checkboxTextContainer: {
+    flex: 1,
+  },
+  checkboxText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  checkboxSubtext: { color: "#ccc", fontSize: 12, marginTop: 2 },
   errorText: { color: "#ff6b6b", fontSize: 14, marginTop: 8 },
   actionsRow: { flexDirection: "row", gap: 12, marginTop: 16 },
   cancelButton: {

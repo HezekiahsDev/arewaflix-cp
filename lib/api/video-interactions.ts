@@ -691,6 +691,91 @@ export async function submitCommentReport(
   return payload;
 }
 
+/**
+ * Fetch a single comment by ID
+ */
+export async function fetchSingleComment(
+  videoId: string | number,
+  commentId: string | number,
+  token?: string,
+  signal?: AbortSignal
+): Promise<VideoComment> {
+  const url = `${API_BASE_URL}/api/v1/videos/${videoId}/comments/${commentId}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal,
+  });
+
+  const text = await response.text();
+  let payload: any;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch comment: ${response.status} ${response.statusText} - ${text}`
+      );
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch comment: ${response.status} ${response.statusText} - ${JSON.stringify(payload)}`
+    );
+  }
+
+  return payload as VideoComment;
+}
+
+/**
+ * Block a user
+ */
+export async function blockUser(
+  userId: string | number,
+  token: string,
+  signal?: AbortSignal
+): Promise<any> {
+  const url = `${API_BASE_URL}/user-block/block/${userId}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    signal,
+  });
+
+  const text = await response.text();
+  let payload: any;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to block user: ${response.status} ${response.statusText} - ${text}`
+      );
+    }
+    throw err;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to block user: ${response.status} ${response.statusText} - ${JSON.stringify(payload)}`
+    );
+  }
+
+  return payload;
+}
+
 function getSanitizedBaseUrl(value?: string): string {
   const base = (value && value.trim()) || DEFAULT_BASE_URL;
   const trimmed = base.replace(/\/$/, "");

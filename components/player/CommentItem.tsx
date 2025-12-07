@@ -5,6 +5,7 @@ import { Image, Pressable, Text, View } from "react-native";
 interface CommentItemProps {
   comment: {
     id: string | number;
+    user_id?: number;
     username: string;
     avatar?: string;
     text: string;
@@ -14,7 +15,7 @@ interface CommentItemProps {
   };
   isLiked: boolean;
   onLikePress: (commentId: string | number) => void;
-  onReportPress: (commentId: string) => void;
+  onReportPress: (commentId: string, userId: string) => void;
   disabled?: boolean;
   resolveAvatarUri: (avatar?: string) => string;
   styles: {
@@ -113,7 +114,9 @@ function CommentItem({
           </Text>
         </Pressable>
         <Pressable
-          onPress={() => onReportPress(String(comment.id))}
+          onPress={() =>
+            onReportPress(String(comment.id), String(comment.user_id))
+          }
           disabled={disabled}
           style={{
             flexDirection: "row",

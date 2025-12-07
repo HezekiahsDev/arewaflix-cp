@@ -795,6 +795,7 @@ export default function ShortsScreen() {
         visible={commentModalVisible}
         videoId={selectedVideoId}
         token={token}
+        currentUserId={user?.id?.toString() ?? null}
         onClose={handleCloseComments}
       />
 

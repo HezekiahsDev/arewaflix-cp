@@ -379,6 +379,7 @@ export default function PlayerScreen() {
   const [reportingCommentId, setReportingCommentId] = useState<string | null>(
     null
   );
+  const [reportingUserId, setReportingUserId] = useState<string | null>(null);
 
   // Saved state (local for demo - should be persisted)
   const [isSaved, setIsSaved] = useState(false);
@@ -957,10 +958,14 @@ export default function PlayerScreen() {
     }
   }, [videoId, token, isSaved]);
 
-  const handleReportPress = useCallback((commentId?: string | null) => {
-    setReportingCommentId(commentId ?? null);
-    setReportModalVisible(true);
-  }, []);
+  const handleReportPress = useCallback(
+    (commentId?: string | null, userId?: string | null) => {
+      setReportingCommentId(commentId ?? null);
+      setReportingUserId(userId ?? null);
+      setReportModalVisible(true);
+    },
+    []
+  );
 
   const handleSubmitComment = useCallback(async () => {
     const trimmed = commentDraft.trim();
@@ -1293,13 +1298,17 @@ export default function PlayerScreen() {
         onClose={() => {
           setReportModalVisible(false);
           setReportingCommentId(null);
+          setReportingUserId(null);
         }}
         videoId={videoId ?? null}
         commentId={reportingCommentId}
+        userId={reportingUserId}
+        currentUserId={user?.id?.toString() ?? null}
         token={token ?? null}
         onSuccess={() => {
           setReportModalVisible(false);
           setReportingCommentId(null);
+          setReportingUserId(null);
         }}
       />
     </View>

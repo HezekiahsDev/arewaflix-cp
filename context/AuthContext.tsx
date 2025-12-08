@@ -99,6 +99,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = require("expo-router").useRouter();
 
   useEffect(() => {
     const loadAuthState = async () => {
@@ -139,7 +140,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } catch (error) {
       console.error("Failed to clear auth state:", error);
     }
-  }, []);
+
+    try {
+      // navigate to the app index/home after signing out
+      router.replace("/");
+    } catch (err) {
+      // ignore navigation errors
+    }
+  }, [router]);
 
   const value = useMemo<AuthContextValue>(() => {
     return {

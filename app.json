@@ -96,7 +96,8 @@
       "eas": {
         "projectId": "65fa3bb5-6826-4ab8-a8d3-2ce05db3e26f"
       },
-      "privacyPolicyUrl": "https://arewaflix.com/terms/privacy-policy"
+      "privacyPolicyUrl": "https://arewaflix.com/terms/privacy-policy",
+      "disableConsoleInProd": true
     },
     "owner": "hezekiahsdev"
   }

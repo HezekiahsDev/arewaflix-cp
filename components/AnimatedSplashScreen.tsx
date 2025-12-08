@@ -1,4 +1,5 @@
-import React, { useEffect } from "react";
+import * as SplashScreen from "expo-splash-screen";
+import React, { useEffect, useRef } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
@@ -19,8 +20,18 @@ export default function AnimatedSplashScreen({
   const logoOpacity = useSharedValue(0);
   const textOpacity = useSharedValue(0);
   const textTranslateY = useSharedValue(20);
+  const timeoutsRef = useRef<number[] | null>(null);
+  const finishTimeouts = useRef<number[] | null>(null);
 
   useEffect(() => {
+    console.debug("AnimatedSplashScreen: mounted");
+    // Reveal the React view so the custom animated splash can be seen.
+    // The app previously called `SplashScreen.preventAutoHideAsync()` at
+    // startup; hide the native splash here to show the animated one.
+    SplashScreen.hideAsync().catch(() => {
+      // ignore if already hidden or not available
+    });
+
     // Animate logo entrance (slower and smoother)
     logoScale.value = withSpring(1, {
       damping: 14,
@@ -32,7 +43,8 @@ export default function AnimatedSplashScreen({
     });
 
     // Animate text after logo (delayed and slower)
-    setTimeout(() => {
+    const textTimeout = setTimeout(() => {
+      console.debug("AnimatedSplashScreen: showing text");
       textOpacity.value = withTiming(1, { duration: 1000 });
       textTranslateY.value = withSpring(0, {
         damping: 16,
@@ -41,14 +53,34 @@ export default function AnimatedSplashScreen({
     }, 1200);
 
     // Fade out and finish after 5s
-    setTimeout(() => {
+    const fadeTimeout = setTimeout(() => {
+      console.debug("AnimatedSplashScreen: starting fade out");
       logoOpacity.value = withTiming(0, { duration: 700 });
       textOpacity.value = withTiming(0, { duration: 700 });
 
-      setTimeout(() => {
+      const finishTimeout = setTimeout(() => {
+        console.debug("AnimatedSplashScreen: calling onFinish");
         onFinish();
       }, 700);
+
+      // Track nested finish timeout
+      finishTimeouts.current = [
+        ...(finishTimeouts.current ?? []),
+        finishTimeout as unknown as number,
+      ];
     }, 5000);
+
+    // track timeouts so we can clear them on unmount
+    timeoutsRef.current = [
+      textTimeout as unknown as number,
+      fadeTimeout as unknown as number,
+    ];
+
+    return () => {
+      console.debug("AnimatedSplashScreen: unmounting, clearing timeouts");
+      timeoutsRef.current?.forEach((id) => clearTimeout(id));
+      finishTimeouts.current?.forEach((id) => clearTimeout(id));
+    };
   }, []);
 
   const logoAnimatedStyle = useAnimatedStyle(() => ({

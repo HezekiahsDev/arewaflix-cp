@@ -92,7 +92,7 @@ export default function LoginScreen() {
   }, [username, password, signIn, router]);
 
   const navigateToSignup = useCallback(() => {
-    router.push("/auth/signup");
+    router.replace("/auth/signup");
   }, [router]);
 
   const keyboardVerticalOffset = useMemo(

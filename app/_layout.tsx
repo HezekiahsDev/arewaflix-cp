@@ -1,3 +1,4 @@
+import "@/lib/disable-console";
 import { registerForPushNotificationsAsync } from "@/lib/notifications";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {
@@ -37,6 +38,7 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Ignore errors if splash screen is already hidden or not available
 });
+console.debug("RootLayout: called SplashScreen.preventAutoHideAsync");
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -52,11 +54,13 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
+      console.debug("RootLayout: fonts loaded");
       // Don't hide splash screen here - let the animated splash handle it
     }
   }, [loaded]);
 
   const handleSplashFinish = () => {
+    console.debug("RootLayout: handleSplashFinish - hiding native splash");
     setShowAnimatedSplash(false);
     // Now hide the native splash screen
     SplashScreen.hideAsync().catch(() => {

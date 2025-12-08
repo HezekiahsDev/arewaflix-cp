@@ -112,7 +112,7 @@ export default function VideoPlayer({
         />
 
         {/* Watermark */}
-        <Watermark size={64} style={{ left: 8, top: 8 }} />
+        <Watermark size={64} style={{ left: 12 }} />
         {/* Loading Indicator */}
         {isLoading && !hasError && (
           <View className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -123,11 +123,11 @@ export default function VideoPlayer({
         {/* Error State */}
         {hasError && (
           <View className="absolute inset-0 flex items-center justify-center bg-black">
-            <View className="text-center px-4">
-              <View className="text-white text-lg mb-2">
+            <View className="px-4 text-center">
+              <View className="mb-2 text-lg text-white">
                 Failed to load video
               </View>
-              <View className="text-gray-400 text-sm">
+              <View className="text-sm text-gray-400">
                 Please check your connection and try again
               </View>
             </View>

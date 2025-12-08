@@ -17,20 +17,31 @@ import {
 import CommentItem from "@/components/player/CommentItem";
 import ReportModal from "@/components/ReportModal";
 import {
+  ApiError,
   VideoComment,
   fetchCommentReaction,
   fetchVideoComments,
   postCommentReaction,
   postVideoComment,
 } from "@/lib/api/video-interactions";
+import { useRouter } from "expo-router";
+
+const CDN_BASE_URL = "https://arewaflix.s3.us-east-005.backblazeb2.com/";
 
 function resolveAvatarUri(avatar?: string): string {
   if (!avatar) return "https://via.placeholder.com/32x32/666666/ffffff?text=U";
   const trimmed = avatar.trim();
   if (!trimmed) return "https://via.placeholder.com/32x32/666666/ffffff?text=U";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  // Fallback to placeholder path handled by server; keep simple
-  return `https://api.arewaflix.io/${trimmed.replace(/^\/+/, "")}`;
+
+  // Check if this looks like a CDN path (contains "upload/photos")
+  const sanitized = trimmed.replace(/^\/+/, "");
+  if (sanitized.includes("upload/photos")) {
+    return `${CDN_BASE_URL}${encodeURI(sanitized)}`;
+  }
+
+  // Fallback to API base URL for other paths
+  return `https://api.arewaflix.io/${sanitized}`;
 }
 
 const modalStyles = StyleSheet.create({
@@ -167,6 +178,7 @@ export default function ShortsCommentModal({
   currentUserId,
   onClose,
 }: Props) {
+  const router = useRouter();
   const [comments, setComments] = useState<VideoComment[]>([]);
   const [commentDraft, setCommentDraft] = useState("");
   const [isLoadingComments, setIsLoadingComments] = useState(false);
@@ -190,6 +202,8 @@ export default function ShortsCommentModal({
 
   const COMMENTS_PAGE_LIMIT = 20;
 
+  const needsLogin = commentsError === "Please login to view comments.";
+
   const loadComments = useCallback(
     async (page = 1) => {
       if (!videoId) return;
@@ -199,6 +213,7 @@ export default function ShortsCommentModal({
         const resp = await fetchVideoComments(videoId, {
           page,
           limit: COMMENTS_PAGE_LIMIT,
+          token: token ?? undefined,
         });
         if (page === 1) setComments(resp.data || []);
         else setComments((prev) => [...prev, ...(resp.data || [])]);
@@ -230,7 +245,19 @@ export default function ShortsCommentModal({
           });
         }
       } catch (err) {
-        setCommentsError("Failed to load comments.");
+        if (err instanceof ApiError) {
+          if (err.status === 401) {
+            setCommentsError("Please login to view comments.");
+          } else if (err.status === 502) {
+            setCommentsError(
+              "Comments service temporarily unavailable. Please try again later."
+            );
+          } else {
+            setCommentsError("Failed to load comments.");
+          }
+        } else {
+          setCommentsError("Failed to load comments.");
+        }
       } finally {
         setIsLoadingComments(false);
       }
@@ -254,12 +281,25 @@ export default function ShortsCommentModal({
       const resp = await fetchVideoComments(videoId, {
         page: nextPage,
         limit: COMMENTS_PAGE_LIMIT,
+        token: token ?? undefined,
       });
       setComments((prev) => [...prev, ...(resp.data || [])]);
       setCommentsPage(resp.pagination?.page ?? nextPage);
       setCommentsTotalPages(resp.pagination?.totalPages ?? commentsTotalPages);
     } catch (err) {
-      setCommentsError("Failed to load more comments.");
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setCommentsError("Please login to view comments.");
+        } else if (err.status === 502) {
+          setCommentsError(
+            "Comments service temporarily unavailable. Please try again later."
+          );
+        } else {
+          setCommentsError("Failed to load more comments.");
+        }
+      } else {
+        setCommentsError("Failed to load more comments.");
+      }
     } finally {
       setIsLoadingMoreComments(false);
     }
@@ -413,14 +453,22 @@ export default function ShortsCommentModal({
               <Text style={modalStyles.errorBannerText}>{commentsError}</Text>
               <Pressable
                 onPress={() => {
-                  if (videoId) {
+                  if (needsLogin) {
+                    setCommentsError(null);
+                    onClose();
+                    router.push("/auth/login");
+                  } else if (videoId) {
                     setCommentsError(null);
                     void loadComments(1);
                   }
                 }}
                 style={modalStyles.retryButton}
               >
-                <Ionicons name="refresh" size={16} color="#fff" />
+                <Ionicons
+                  name={needsLogin ? "log-in" : "refresh"}
+                  size={16}
+                  color="#fff"
+                />
               </Pressable>
             </View>
           )}
@@ -432,7 +480,7 @@ export default function ShortsCommentModal({
           ) : commentsError && !comments.length ? (
             <View style={modalStyles.emptyContainer}>
               <Ionicons
-                name="cloud-offline-outline"
+                name={needsLogin ? "person-circle" : "cloud-offline-outline"}
                 size={64}
                 color="rgba(255,255,255,0.3)"
               />
@@ -442,14 +490,22 @@ export default function ShortsCommentModal({
                   { marginTop: 16, fontSize: 16, fontWeight: "600" },
                 ]}
               >
-                Unable to load comments
+                {needsLogin
+                  ? "Sign in to view comments"
+                  : "Unable to load comments"}
               </Text>
               <Text style={[modalStyles.emptyText, { marginTop: 8 }]}>
-                Please check your connection
+                {needsLogin
+                  ? "You must be signed in to view and post comments."
+                  : "Please check your connection"}
               </Text>
               <Pressable
                 onPress={() => {
-                  if (videoId) {
+                  if (needsLogin) {
+                    setCommentsError(null);
+                    onClose();
+                    router.push("/auth/login");
+                  } else if (videoId) {
                     setCommentsError(null);
                     void loadComments(1);
                   }
@@ -465,11 +521,15 @@ export default function ShortsCommentModal({
                   marginTop: 20,
                 }}
               >
-                <Ionicons name="refresh" size={18} color="#fff" />
+                <Ionicons
+                  name={needsLogin ? "log-in" : "refresh"}
+                  size={18}
+                  color="#fff"
+                />
                 <Text
                   style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}
                 >
-                  Try Again
+                  {needsLogin ? "Sign In" : "Try Again"}
                 </Text>
               </Pressable>
             </View>

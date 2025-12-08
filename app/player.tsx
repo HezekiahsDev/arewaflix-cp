@@ -2,7 +2,9 @@ import PlayerDetails from "@/components/PlayerDetails";
 import PlayerVideoContainer from "@/components/PlayerVideoContainer";
 import ReportModal from "@/components/ReportModal";
 import { useAuth } from "@/context/AuthContext";
+import { useFullscreen } from "@/context/FullscreenContext";
 import {
+  ApiError,
   fetchCommentReaction,
   fetchUserReaction,
   fetchVideoComments,
@@ -397,6 +399,7 @@ export default function PlayerScreen() {
   const COMMENTS_REFRESH_INTERVAL = 30000; // 30 seconds
 
   const { user, token } = useAuth();
+  const { setFullscreen } = useFullscreen();
 
   const progressValue = isSeeking ? seekPosition : positionMillis;
 
@@ -486,6 +489,7 @@ export default function PlayerScreen() {
           page: 1,
           limit: COMMENTS_PAGE_LIMIT,
           signal,
+          token: token ?? undefined,
         });
 
         setComments(commentsResponse.data);
@@ -529,6 +533,7 @@ export default function PlayerScreen() {
             page: 1,
             limit: COMMENTS_PAGE_LIMIT,
             signal: controller.signal,
+            token: token ?? undefined,
           }),
           fetchVideoLikes(videoId, controller.signal),
         ]);
@@ -541,10 +546,25 @@ export default function PlayerScreen() {
             commentsResponse.value.pagination?.totalPages ?? 1
           );
         } else {
-          if ((commentsResponse.reason as Error).name !== "AbortError") {
-            setCommentsError(
-              "Failed to load comments. Please try again later."
-            );
+          const reason = commentsResponse.reason as any;
+          if (reason?.name !== "AbortError") {
+            if (reason instanceof ApiError) {
+              if (reason.status === 401) {
+                setCommentsError("Please login to view comments.");
+              } else if (reason.status === 502) {
+                setCommentsError(
+                  "Comments service temporarily unavailable. Please try again later."
+                );
+              } else {
+                setCommentsError(
+                  "Failed to load comments. Please try again later."
+                );
+              }
+            } else {
+              setCommentsError(
+                "Failed to load comments. Please try again later."
+              );
+            }
           }
         }
 
@@ -805,15 +825,10 @@ export default function PlayerScreen() {
     async (deltaMillis: number) => {
       const video = videoRef.current;
       if (!video || !isLoaded) {
-        console.log("Seek failed: video not ready", {
-          video: !!video,
-          isLoaded,
-        });
         return;
       }
 
       if (isBuffering) {
-        console.log("Seek failed: video is buffering");
         return;
       }
 
@@ -824,19 +839,10 @@ export default function PlayerScreen() {
       const duration = successStatus?.durationMillis || durationMillis || 0;
 
       if (duration <= 0) {
-        console.log("Seek failed: invalid duration", { duration });
         return;
       }
 
       const target = Math.min(Math.max(current + deltaMillis, 0), duration);
-
-      console.log("Seeking", {
-        deltaMillis,
-        current,
-        duration,
-        target,
-        positionMillis,
-      });
 
       try {
         // Temporarily set seeking state to prevent conflicts
@@ -845,7 +851,6 @@ export default function PlayerScreen() {
           toleranceMillisBefore: 1000,
           toleranceMillisAfter: 1000,
         });
-        console.log("Seek successful to", target);
         // The position will be updated via status callback
       } catch (error) {
         console.error("Seek failed:", error);
@@ -1003,6 +1008,7 @@ export default function PlayerScreen() {
       const resp = await fetchVideoComments(videoId, {
         page: nextPage,
         limit: COMMENTS_PAGE_LIMIT,
+        token: token ?? undefined,
       });
       setComments((prev) => [...prev, ...(resp.data || [])]);
       setCommentsPage(resp.pagination?.page ?? nextPage);
@@ -1110,55 +1116,51 @@ export default function PlayerScreen() {
 
   const handleFullscreenUpdate = useCallback(
     async (event: { fullscreenUpdate: number }) => {
-      // 0 = will dismiss, 1 = will present, 2 = did dismiss, 3 = did present
-      const isEnteringOrInFullscreen =
-        event.fullscreenUpdate === 1 || event.fullscreenUpdate === 3;
-      setIsFullscreen(isEnteringOrInFullscreen);
-
-      // Manage screen orientation based on fullscreen state
-      try {
-        if (event.fullscreenUpdate === 1 || event.fullscreenUpdate === 3) {
-          // Entering or in fullscreen - unlock orientation to allow landscape
-          await ScreenOrientation.unlockAsync();
-        } else if (
-          event.fullscreenUpdate === 0 ||
-          event.fullscreenUpdate === 2
-        ) {
-          // Exiting fullscreen - lock to portrait
-          await ScreenOrientation.lockAsync(
-            ScreenOrientation.OrientationLock.PORTRAIT_UP
-          );
-        }
-      } catch (error) {
-        // Failed to change orientation - not critical
-      }
+      // This is now unused as we use custom modal fullscreen
+      // Keeping for compatibility with PlayerVideoContainer
     },
     []
   );
 
   const handleEnterFullscreen = useCallback(async () => {
-    const video = videoRef.current;
-    if (!video || !isLoaded) {
+    if (!isLoaded) {
       return;
     }
     registerInteraction();
+
     try {
-      await video.presentFullscreenPlayer();
+      await ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.LANDSCAPE
+      );
+      StatusBar.setHidden(true, "fade");
     } catch (error) {
-      // Failed to enter fullscreen
+      console.error("Failed to lock orientation:", error);
+    }
+
+    setIsFullscreen(true);
+    try {
+      setFullscreen(true);
+    } catch (e) {
+      // ignore if context not available
     }
   }, [isLoaded, registerInteraction]);
 
   const handleExitFullscreen = useCallback(async () => {
-    const video = videoRef.current;
-    if (!video) {
-      return;
-    }
     registerInteraction();
+
     try {
-      await video.dismissFullscreenPlayer();
+      await ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT_UP
+      );
+      StatusBar.setHidden(false, "fade");
     } catch (error) {
-      // Failed to exit fullscreen or not in fullscreen
+      console.error("Failed to restore orientation:", error);
+    }
+    setIsFullscreen(false);
+    try {
+      setFullscreen(false);
+    } catch (e) {
+      // ignore if context not available
     }
   }, [registerInteraction]);
 
@@ -1224,6 +1226,33 @@ export default function PlayerScreen() {
     );
   }
 
+  const fullscreenStyles = useMemo(() => {
+    if (!isFullscreen) return styles;
+
+    return {
+      ...styles,
+      videoContainer: {
+        position: "absolute" as const,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#000",
+        zIndex: 9999,
+      },
+      video: {
+        width: "100%",
+        height: "100%",
+      },
+      controlsContainer: {
+        ...StyleSheet.flatten(styles.controlsContainer),
+        paddingHorizontal: 40,
+      },
+    };
+  }, [isFullscreen]);
+
   return (
     <View style={styles.safeArea}>
       <StatusBar
@@ -1232,7 +1261,7 @@ export default function PlayerScreen() {
       />
 
       <PlayerVideoContainer
-        styles={styles}
+        styles={fullscreenStyles}
         resolvedUri={resolvedUri}
         poster={poster}
         videoRef={videoRef}
@@ -1261,56 +1290,62 @@ export default function PlayerScreen() {
         handleSliderValueChange={handleSliderValueChange}
         handleEnterFullscreen={handleEnterFullscreen}
         handleExitFullscreen={handleExitFullscreen}
+        handleClose={() => router.back()}
         handleReplay={handleReplay}
+        isFullscreen={isFullscreen}
       />
 
-      <PlayerDetails
-        styles={styles}
-        displayTitle={displayTitle}
-        likes={likes}
-        dislikes={dislikes}
-        isLiked={isLiked}
-        isDisliked={isDisliked}
-        isSaved={isSaved}
-        handleLikePress={handleLikePress}
-        handleDislikePress={handleDislikePress}
-        handleSavePress={handleSavePress}
-        handleReportPress={handleReportPress}
-        likesError={likesError}
-        comments={comments}
-        commentDraft={commentDraft}
-        setCommentDraft={setCommentDraft}
-        handleSubmitComment={handleSubmitComment}
-        commentsError={commentsError}
-        isLoadingComments={isLoadingComments}
-        isPostingComment={isPostingComment}
-        isLoadingMoreComments={isLoadingMoreComments}
-        loadMoreComments={loadMoreComments}
-        toggleLikeComment={toggleLikeComment}
-        likedCommentIds={likedCommentIds}
-        likingCommentId={likingCommentId}
-        resolveAvatarUri={resolveAvatarUri}
-        token={token}
-      />
+      {!isFullscreen && (
+        <>
+          <PlayerDetails
+            styles={styles}
+            displayTitle={displayTitle}
+            likes={likes}
+            dislikes={dislikes}
+            isLiked={isLiked}
+            isDisliked={isDisliked}
+            isSaved={isSaved}
+            handleLikePress={handleLikePress}
+            handleDislikePress={handleDislikePress}
+            handleSavePress={handleSavePress}
+            handleReportPress={handleReportPress}
+            likesError={likesError}
+            comments={comments}
+            commentDraft={commentDraft}
+            setCommentDraft={setCommentDraft}
+            handleSubmitComment={handleSubmitComment}
+            commentsError={commentsError}
+            isLoadingComments={isLoadingComments}
+            isPostingComment={isPostingComment}
+            isLoadingMoreComments={isLoadingMoreComments}
+            loadMoreComments={loadMoreComments}
+            toggleLikeComment={toggleLikeComment}
+            likedCommentIds={likedCommentIds}
+            likingCommentId={likingCommentId}
+            resolveAvatarUri={resolveAvatarUri}
+            token={token}
+          />
 
-      <ReportModal
-        visible={reportModalVisible}
-        onClose={() => {
-          setReportModalVisible(false);
-          setReportingCommentId(null);
-          setReportingUserId(null);
-        }}
-        videoId={videoId ?? null}
-        commentId={reportingCommentId}
-        userId={reportingUserId}
-        currentUserId={user?.id?.toString() ?? null}
-        token={token ?? null}
-        onSuccess={() => {
-          setReportModalVisible(false);
-          setReportingCommentId(null);
-          setReportingUserId(null);
-        }}
-      />
+          <ReportModal
+            visible={reportModalVisible}
+            onClose={() => {
+              setReportModalVisible(false);
+              setReportingCommentId(null);
+              setReportingUserId(null);
+            }}
+            videoId={videoId ?? null}
+            commentId={reportingCommentId}
+            userId={reportingUserId}
+            currentUserId={user?.id?.toString() ?? null}
+            token={token ?? null}
+            onSuccess={() => {
+              setReportModalVisible(false);
+              setReportingCommentId(null);
+              setReportingUserId(null);
+            }}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -1705,6 +1740,12 @@ const styles = StyleSheet.create({
   emptyCommentsText: {
     color: "rgba(255,255,255,0.5)",
     fontSize: 14,
+  },
+  emptyCommentsAction: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingVertical: 12,
   },
   emptyContainer: {
     flex: 1,

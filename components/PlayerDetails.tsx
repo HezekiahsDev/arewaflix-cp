@@ -1,11 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import CommentItem from "./player/CommentItem";
@@ -41,6 +46,19 @@ export default function PlayerDetails(props: any) {
     token,
   } = props;
 
+  const router = useRouter();
+  // Helper to ensure user is authenticated before performing an action
+  const ensureAuth = (fn?: (...args: any[]) => void) => {
+    return (...args: any[]) => {
+      if (!token) {
+        router.push("/auth/login");
+        return;
+      }
+      fn?.(...args);
+    };
+  };
+  const needsLogin = commentsError === "Please login to view comments.";
+
   return (
     <View style={styles.detailsContainer}>
       <Text style={styles.title}>{displayTitle}</Text>
@@ -51,7 +69,7 @@ export default function PlayerDetails(props: any) {
           label={isLiked ? "Liked" : "Like"}
           count={likes}
           isActive={isLiked}
-          onPress={handleLikePress}
+          onPress={ensureAuth(handleLikePress)}
           style={styles.socialButton}
           activeStyle={styles.socialButtonActive}
           labelStyle={styles.socialLabel}
@@ -65,7 +83,7 @@ export default function PlayerDetails(props: any) {
           label={isDisliked ? "Disliked" : "Dislike"}
           count={dislikes}
           isActive={isDisliked}
-          onPress={handleDislikePress}
+          onPress={ensureAuth(handleDislikePress)}
           style={styles.socialButton}
           activeStyle={styles.socialButtonActive}
           labelStyle={styles.socialLabel}
@@ -78,7 +96,7 @@ export default function PlayerDetails(props: any) {
           activeIcon="bookmark"
           label={isSaved ? "Saved" : "Save"}
           isActive={isSaved}
-          onPress={handleSavePress}
+          onPress={ensureAuth(handleSavePress)}
           style={styles.socialButton}
           activeStyle={styles.socialButtonActive}
           labelStyle={styles.socialLabel}
@@ -88,7 +106,7 @@ export default function PlayerDetails(props: any) {
         <SocialButton
           icon="flag-outline"
           label="Report"
-          onPress={() => handleReportPress()}
+          onPress={ensureAuth(() => handleReportPress && handleReportPress())}
           style={styles.socialButton}
           labelStyle={styles.socialLabel}
           iconColor="#ff3b30"
@@ -103,83 +121,131 @@ export default function PlayerDetails(props: any) {
       )}
 
       <View style={styles.commentsSection}>
-        <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
-        <View style={styles.commentInputRow}>
-          <TextInput
-            value={commentDraft}
-            onChangeText={setCommentDraft}
-            placeholder="Add a public comment"
-            placeholderTextColor="rgba(255,255,255,0.4)"
-            style={styles.commentInput}
-            multiline
-            returnKeyType="done"
-            blurOnSubmit
-            onSubmitEditing={() => {}}
-          />
-          <Pressable
-            style={[
-              styles.commentButton,
-              (!commentDraft.trim() || isPostingComment || !token) &&
-                styles.commentButtonDisabled,
-            ]}
-            onPress={handleSubmitComment}
-            disabled={!commentDraft.trim().length || isPostingComment || !token}
-          >
-            <Text style={styles.commentButtonText}>
-              {isPostingComment ? "Posting..." : "Post"}
+        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+          <View>
+            <Text style={styles.sectionTitle}>
+              Comments ({comments.length})
             </Text>
-          </Pressable>
-        </View>
-
-        {commentsError && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="warning-outline" size={16} color="#f59e0b" />
-            <Text style={styles.errorBannerText}>{commentsError}</Text>
-          </View>
-        )}
-
-        {isLoadingComments ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : comments.length ? (
-          <FlatList
-            data={comments}
-            keyExtractor={(item: any, index: number) => `${item.id}-${index}`}
-            contentContainerStyle={styles.commentList}
-            renderItem={useCallback(
-              ({ item }: any) => (
-                <CommentItem
-                  comment={item}
-                  isLiked={likedCommentIds.has(String(item.id))}
-                  onLikePress={toggleLikeComment}
-                  onReportPress={handleReportPress}
-                  disabled={!token || likingCommentId === String(item.id)}
-                  resolveAvatarUri={resolveAvatarUri}
-                  styles={styles}
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
+            >
+              <View style={styles.commentInputRow}>
+                <TextInput
+                  value={commentDraft}
+                  onChangeText={setCommentDraft}
+                  placeholder="Add a public comment"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  style={styles.commentInput}
+                  multiline
+                  returnKeyType="done"
+                  blurOnSubmit
+                  onSubmitEditing={() => {}}
                 />
-              ),
-              [
-                likedCommentIds,
-                toggleLikeComment,
-                handleReportPress,
-                resolveAvatarUri,
-                styles,
-                token,
-                likingCommentId,
-              ]
+                <Pressable
+                  style={[
+                    styles.commentButton,
+                    (!commentDraft.trim() || isPostingComment) &&
+                      styles.commentButtonDisabled,
+                  ]}
+                  onPress={ensureAuth(handleSubmitComment)}
+                  disabled={!commentDraft.trim().length || isPostingComment}
+                >
+                  <Text style={styles.commentButtonText}>
+                    {isPostingComment ? "Posting..." : "Post"}
+                  </Text>
+                </Pressable>
+              </View>
+            </KeyboardAvoidingView>
+
+            {commentsError && (
+              <View style={styles.errorBanner}>
+                <Ionicons name="warning-outline" size={16} color="#f59e0b" />
+                <Text style={styles.errorBannerText}>{commentsError}</Text>
+                <Pressable
+                  onPress={() => {
+                    if (needsLogin) {
+                      router.push("/auth/login");
+                    } else {
+                      // Attempt a reload by emitting a navigation refresh or trigger parent
+                    }
+                  }}
+                  style={{ marginLeft: 12 }}
+                >
+                  <Ionicons
+                    name={needsLogin ? "log-in" : "refresh"}
+                    size={16}
+                    color="#fff"
+                  />
+                </Pressable>
+              </View>
             )}
-            onEndReached={() => loadMoreComments()}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={
-              isLoadingMoreComments ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : null
-            }
-          />
-        ) : (
-          <Text style={styles.emptyCommentsText}>
-            Be the first to leave a comment.
-          </Text>
-        )}
+
+            {isLoadingComments ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : commentsError && !comments.length && needsLogin ? (
+              <View style={styles.emptyCommentsAction}>
+                <Text style={styles.emptyCommentsText}>
+                  Sign in to view comments
+                </Text>
+                <Pressable
+                  onPress={() => router.push("/auth/login")}
+                  style={styles.primaryButton}
+                >
+                  <Text style={styles.primaryButtonText}>Sign In</Text>
+                </Pressable>
+              </View>
+            ) : comments.length ? (
+              <FlatList
+                data={comments}
+                keyExtractor={(item: any, index: number) =>
+                  `${item.id}-${index}`
+                }
+                contentContainerStyle={styles.commentList}
+                renderItem={useCallback(
+                  ({ item }: any) => (
+                    <CommentItem
+                      comment={item}
+                      isLiked={likedCommentIds.has(String(item.id))}
+                      onLikePress={(id: any) =>
+                        ensureAuth(toggleLikeComment)(id)
+                      }
+                      onReportPress={(cid: string, uid: string) =>
+                        ensureAuth(
+                          (c: string, u: string) =>
+                            handleReportPress && handleReportPress(c, u)
+                        )(cid, uid)
+                      }
+                      disabled={likingCommentId === String(item.id)}
+                      resolveAvatarUri={resolveAvatarUri}
+                      styles={styles}
+                    />
+                  ),
+                  [
+                    likedCommentIds,
+                    toggleLikeComment,
+                    handleReportPress,
+                    resolveAvatarUri,
+                    styles,
+                    token,
+                    likingCommentId,
+                  ]
+                )}
+                onEndReached={() => loadMoreComments()}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={
+                  isLoadingMoreComments ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : null
+                }
+              />
+            ) : (
+              <Text style={styles.emptyCommentsText}>
+                Be the first to leave a comment.
+              </Text>
+            )}
+          </View>
+        </TouchableWithoutFeedback>
       </View>
     </View>
   );

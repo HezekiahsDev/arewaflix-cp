@@ -16,6 +16,7 @@ import {
   Text,
   View,
 } from "react-native";
+import Watermark from "./Watermark";
 
 // Utility: quick availability check for video URL to help diagnose iOS errors
 async function checkUrlAvailability(uri: string) {
@@ -50,6 +51,7 @@ import {
 } from "@/lib/api/video-interactions";
 import { Video as VideoModel } from "@/lib/api/videos";
 import { getDurationLabel } from "@/lib/videos/formatters";
+import { useRouter } from "expo-router";
 
 type PlayableShort = {
   video: VideoModel;
@@ -144,6 +146,17 @@ export default React.memo(
     onReport,
   }: ShortPlayerCardProps) {
     const { user, token } = useAuth();
+    const router = useRouter();
+
+    const ensureAuth = (fn?: (...args: any[]) => void) => {
+      return (...args: any[]) => {
+        if (!token) {
+          router.push("/auth/login");
+          return;
+        }
+        fn?.(...args);
+      };
+    };
     const videoRef = useRef<ExpoVideo | null>(null);
     const [isBuffering, setIsBuffering] = useState(true);
     const [hasError, setHasError] = useState<string | null>(null);
@@ -244,6 +257,7 @@ export default React.memo(
             page: 1,
             limit: 1,
             signal: controller.signal,
+            token,
           });
           if (controller.signal.aborted) return;
           setComments(commentsResp.data || []);
@@ -266,7 +280,7 @@ export default React.memo(
     }, [isActive, videoId, token]);
 
     const handleLikePress = useCallback(async () => {
-      if (!videoId || !token || isPostingReaction) return;
+      if (!videoId || isPostingReaction) return;
       setIsPostingReaction(true);
       try {
         const response = await postVideoReaction(videoId, "like", token);
@@ -311,9 +325,13 @@ export default React.memo(
       }
       if (now - lastTap.current < DOUBLE_TAP_DELAY) {
         lastTap.current = 0;
-        if (!isLiked && token) {
-          animateLike();
-          handleLikePress();
+        if (!isLiked) {
+          if (!token) {
+            router.push("/auth/login");
+          } else {
+            animateLike();
+            handleLikePress();
+          }
         }
       } else {
         lastTap.current = now;
@@ -512,6 +530,8 @@ export default React.memo(
 
     return (
       <View style={styles.root}>
+        {/* Watermark */}
+        <Watermark size={72} style={{ left: 12, top: topInset + 8 }} />
         <Pressable
           style={styles.fullScreen}
           onPress={handleDoubleTap}
@@ -716,8 +736,8 @@ export default React.memo(
         <View style={[styles.rightActions, { bottom: bottomInset + 120 }]}>
           <Pressable
             style={{ alignItems: "center", marginBottom: 18 }}
-            onPress={handleLikePress}
-            disabled={!token || isPostingReaction}
+            onPress={ensureAuth(() => handleLikePress())}
+            disabled={isPostingReaction}
           >
             <HeartIcon size={34} color={isLiked ? "#ff2d55" : "#fff"} />
             <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
@@ -727,7 +747,13 @@ export default React.memo(
 
           <Pressable
             style={{ alignItems: "center", marginBottom: 18 }}
-            onPress={() => onOpenComments(videoId)}
+            onPress={() => {
+              if (!token) {
+                router.push("/auth/login");
+                return;
+              }
+              onOpenComments(videoId);
+            }}
             accessibilityRole="button"
             accessibilityLabel={`View comments (${commentsCount})`}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -740,7 +766,13 @@ export default React.memo(
 
           <Pressable
             style={{ alignItems: "center", marginBottom: 18 }}
-            onPress={() => onReport(videoId)}
+            onPress={() => {
+              if (!token) {
+                router.push("/auth/login");
+                return;
+              }
+              onReport(videoId);
+            }}
           >
             <Ionicons name="flag-outline" size={26} color="#ff3b30" />
             <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>

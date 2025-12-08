@@ -20,6 +20,7 @@ import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 import AppHeader from "@/components/AppHeader";
 import Colors from "@/constants/Colors";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { FullscreenProvider, useFullscreen } from "@/context/FullscreenContext";
 import { useColorScheme as useNativewindColorScheme } from "nativewind";
 
 export {
@@ -73,7 +74,9 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <FullscreenProvider>
+        <RootLayoutNav />
+      </FullscreenProvider>
     </AuthProvider>
   );
 }
@@ -81,6 +84,7 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const { colorScheme, setColorScheme } = useNativewindColorScheme();
   const scheme = colorScheme ?? "light";
+  const { isFullscreen } = useFullscreen();
   const pathname = usePathname();
   const isAuthRoute = pathname?.startsWith("/auth");
   // Consider root path (/) or (tabs) index and some tabs as public
@@ -127,8 +131,7 @@ function RootLayoutNav() {
       try {
         const token = await registerForPushNotificationsAsync();
         if (token) {
-          console.log("Expo push token:", token);
-          // TODO: send the token to your backend so you can target this device
+          // Expo push token obtained. TODO: send the token to your backend
         }
       } catch (e) {
         console.warn("Push registration failed:", e);
@@ -181,7 +184,7 @@ function RootLayoutNav() {
           style={{ flex: 1, backgroundColor: Colors[scheme].background }}
         >
           <StatusBar style={Colors[scheme].statusBarStyle} />
-          {!isAuthRoute && <AppHeader colorScheme={scheme} />}
+          {!isAuthRoute && !isFullscreen && <AppHeader colorScheme={scheme} />}
           <View style={{ flex: 1 }}>
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

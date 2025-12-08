@@ -1,6 +1,7 @@
 import { AVPlaybackStatus, Video as ExpoVideo, ResizeMode } from "expo-av";
 import React, { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, View } from "react-native";
+import Watermark from "../Watermark";
 
 export interface VideoPlayerProps {
   /** Video source URI */
@@ -110,6 +111,8 @@ export default function VideoPlayer({
           {...(Platform.OS === "ios" && { playsinline })}
         />
 
+        {/* Watermark */}
+        <Watermark size={64} style={{ left: 8, top: 8 }} />
         {/* Loading Indicator */}
         {isLoading && !hasError && (
           <View className="absolute inset-0 flex items-center justify-center bg-black/50">

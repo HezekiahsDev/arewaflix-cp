@@ -5,13 +5,11 @@ import {
   markNotificationsSeen,
   Notification,
 } from "@/lib/api/notifications";
-import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -36,7 +34,7 @@ export default function NotificationsModal({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  // router removed — modal will not perform navigation
   const insets = useSafeAreaInsets();
   const [isMarking, setIsMarking] = useState(false);
 
@@ -135,25 +133,7 @@ export default function NotificationsModal({
 
   const palette = Colors[colorScheme as "light" | "dark"] || Colors.light;
 
-  function openNotification(item: Notification) {
-    try {
-      if (item.fullLink) {
-        // external absolute link
-        Linking.openURL(item.fullLink);
-        return;
-      }
-
-      if (item.url) {
-        // internal app route - push as any to avoid strict path union typing
-        (router as any).push(item.url);
-        return;
-      }
-
-      // fallback: do nothing
-    } catch (e) {
-      console.warn("Failed to open notification link", e);
-    }
-  }
+  // navigation intentionally disabled for notification rows
 
   return (
     <Modal
@@ -248,8 +228,7 @@ export default function NotificationsModal({
                   paddingHorizontal: 16,
                 }}
                 renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => openNotification(item)}
+                  <View
                     style={{
                       marginBottom: 16,
                       borderRadius: 16,
@@ -317,7 +296,7 @@ export default function NotificationsModal({
                         </Pressable>
                       </View>
                     ) : null}
-                  </Pressable>
+                  </View>
                 )}
                 ListFooterComponent={() =>
                   !showAll && notifications.length > 5 ? (

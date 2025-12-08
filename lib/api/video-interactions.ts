@@ -9,6 +9,18 @@ const API_BASE_URL = getSanitizedBaseUrl(
     : undefined
 );
 
+export class ApiError extends Error {
+  status: number;
+  payload: any;
+
+  constructor(status: number, message: string, payload?: any) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 /**
  * Comment object returned by the API
  */
@@ -151,21 +163,36 @@ export type ViewResponse = {
  */
 export async function fetchVideoComments(
   videoId: string | number,
-  options: { page?: number; limit?: number; signal?: AbortSignal } = {}
+  options: {
+    page?: number;
+    limit?: number;
+    signal?: AbortSignal;
+    token?: string;
+  } = {}
 ): Promise<CommentsResponse> {
-  const { page = 1, limit = 20, signal } = options;
+  const { page = 1, limit = 20, signal, token } = options;
   const url = `${API_BASE_URL}/api/v1/videos/${videoId}/comments?page=${page}&limit=${limit}`;
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Request logging removed for production.
 
   const response = await fetch(url, {
     method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers,
     signal,
   });
 
   const text = await response.text();
+
+  // Response logging removed for production.
 
   let payload: any;
   try {
@@ -173,16 +200,20 @@ export async function fetchVideoComments(
   } catch (err) {
     // non-json response
     if (!response.ok) {
-      throw new Error(
-        `Failed to fetch comments: ${response.status} ${response.statusText} - ${text}`
+      throw new ApiError(
+        response.status,
+        `Failed to fetch comments: ${response.status} ${response.statusText}`,
+        text
       );
     }
     throw err;
   }
 
   if (!response.ok) {
-    throw new Error(
-      `Failed to fetch comments: ${response.status} ${response.statusText} - ${JSON.stringify(payload)}`
+    throw new ApiError(
+      response.status,
+      `Failed to fetch comments: ${response.status} ${response.statusText}`,
+      payload
     );
   }
 
@@ -742,7 +773,7 @@ export async function blockUser(
   token: string,
   signal?: AbortSignal
 ): Promise<any> {
-  const url = `${API_BASE_URL}/user-block/block/${userId}`;
+  const url = `${API_BASE_URL}/api/v1/user-block/block/${userId}`;
 
   const response = await fetch(url, {
     method: "POST",

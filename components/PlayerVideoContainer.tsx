@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import Watermark from "./Watermark";
 
 export default function PlayerVideoContainer(props: any) {
   const {
@@ -41,7 +42,9 @@ export default function PlayerVideoContainer(props: any) {
     handleSliderValueChange,
     handleEnterFullscreen,
     handleExitFullscreen,
+    handleClose,
     handleReplay,
+    isFullscreen,
   } = props;
 
   const progressValue = isLoaded ? positionMillis : positionMillis;
@@ -64,6 +67,9 @@ export default function PlayerVideoContainer(props: any) {
         onLoad={handleLoad}
         onError={handleError}
       />
+
+      {/* Watermark */}
+      <Watermark />
 
       {isBuffering ? (
         <View style={styles.bufferOverlay}>
@@ -126,7 +132,17 @@ export default function PlayerVideoContainer(props: any) {
               </Text>
               <Pressable
                 style={styles.dismissButton}
-                onPress={handleExitFullscreen}
+                onPress={() => {
+                  // If currently fullscreen, just exit fullscreen. Otherwise
+                  // treat this as closing the player screen and navigate back.
+                  if (isFullscreen) {
+                    handleExitFullscreen?.();
+                  } else {
+                    // Prefer explicit close handler when provided
+                    if (typeof handleClose === "function") handleClose();
+                    else handleExitFullscreen?.();
+                  }
+                }}
               >
                 <Ionicons name="close" size={22} color="#fff" />
               </Pressable>
@@ -146,11 +162,6 @@ export default function PlayerVideoContainer(props: any) {
                   <Pressable
                     style={styles.overlayIconButton}
                     onPress={() => {
-                      console.log("Seek back pressed", {
-                        isLoaded,
-                        positionMillis,
-                        durationMillis,
-                      });
                       handleSeek(-10_000);
                     }}
                     disabled={!isLoaded || isBuffering}
@@ -172,11 +183,6 @@ export default function PlayerVideoContainer(props: any) {
                   <Pressable
                     style={styles.overlayIconButton}
                     onPress={() => {
-                      console.log("Seek forward pressed", {
-                        isLoaded,
-                        positionMillis,
-                        durationMillis,
-                      });
                       handleSeek(10_000);
                     }}
                     disabled={!isLoaded || isBuffering}
@@ -214,9 +220,17 @@ export default function PlayerVideoContainer(props: any) {
                   </Text>
                   <Pressable
                     style={styles.fullscreenButton}
-                    onPress={handleEnterFullscreen}
+                    onPress={
+                      isFullscreen
+                        ? handleExitFullscreen
+                        : handleEnterFullscreen
+                    }
                   >
-                    <Ionicons name="expand" size={22} color="#fff" />
+                    <Ionicons
+                      name={isFullscreen ? "contract" : "expand"}
+                      size={22}
+                      color="#fff"
+                    />
                   </Pressable>
                 </View>
               </View>

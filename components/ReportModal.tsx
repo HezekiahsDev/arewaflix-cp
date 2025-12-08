@@ -4,6 +4,7 @@ import {
   submitVideoReport,
 } from "@/lib/api/video-interactions";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -49,6 +50,7 @@ export default function ReportModal({
   token,
   onSuccess,
 }: Props) {
+  const router = useRouter();
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,7 +73,7 @@ export default function ReportModal({
 
     try {
       if (commentId && videoId) {
-        await submitCommentReport(
+        const commentReportResponse = await submitCommentReport(
           videoId,
           commentId,
           reason.trim(),
@@ -81,10 +83,10 @@ export default function ReportModal({
 
         // If block user is checked, block the user
         if (blockUserChecked && userId && token) {
-          await blockUser(userId, token);
+          const blockResponse = await blockUser(userId, token);
         }
       } else if (videoId) {
-        await submitVideoReport(
+        const videoReportResponse = await submitVideoReport(
           videoId,
           reason.trim(),
           selectedOption,
@@ -117,7 +119,21 @@ export default function ReportModal({
 
       if (onSuccess) onSuccess(Boolean(commentId));
     } catch (err) {
-      console.warn("Report submission failed:", err);
+      console.warn("ReportModal: Report submission failed:", err);
+      console.error("ReportModal: Error details:", {
+        error: err,
+        message: err instanceof Error ? err.message : "Unknown error",
+        stack: err instanceof Error ? err.stack : undefined,
+        state: {
+          selectedOption,
+          reason: reason.trim(),
+          blockUserChecked,
+          videoId,
+          commentId,
+          userId,
+          token: token ? "present" : "missing",
+        },
+      });
       setError("Failed to submit report. Please try again.");
       setIsSubmitting(false);
     }
@@ -146,6 +162,30 @@ export default function ReportModal({
           <Text style={styles.description}>
             Why are you reporting this content?
           </Text>
+
+          {!token ? (
+            <View style={styles.loginPromptContainer}>
+              <Text style={styles.loginPromptText}>
+                Please sign in to report content.
+              </Text>
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+                <Pressable
+                  onPress={() => {
+                    // close modal then navigate to login
+                    onClose();
+                    try {
+                      router.push("/auth/login");
+                    } catch (e) {
+                      // fallback: do nothing
+                    }
+                  }}
+                  style={styles.loginButton}
+                >
+                  <Text style={styles.loginButtonText}>Sign In</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
 
           {options.map((option) => {
             const selected = selectedOption === option.id;
@@ -334,4 +374,19 @@ const styles = StyleSheet.create({
   },
   reportButtonDisabled: { backgroundColor: "rgba(255,59,48,0.35)" },
   reportButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  loginPromptContainer: {
+    padding: 12,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  loginPromptText: { color: "#ddd", fontSize: 14 },
+  loginButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    backgroundColor: "#ff3b30",
+  },
+  loginButtonText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });

@@ -98,7 +98,7 @@ All API functions (`login`, `signup`, `getProfile`) now:
 **Display:** Shows field-specific messages like:
 
 ```
-username: Username is already taken.
+username: Username is not available.
 email: An account with this email already exists.
 ```
 

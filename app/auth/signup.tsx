@@ -40,8 +40,6 @@ export default function SignupScreen() {
     "" | "Weak" | "Medium" | "Strong"
   >("");
   const [passwordStrengthScore, setPasswordStrengthScore] = useState(0);
-  const [showConfirmLast, setShowConfirmLast] = useState(false);
-  const confirmLastTimeout = React.useRef<number | null>(null);
 
   const scheme = colorScheme ?? "light";
   const logoSource = useMemo(() => {
@@ -145,19 +143,8 @@ export default function SignupScreen() {
     setPasswordStrengthLabel(label);
   }, [password]);
 
-  // handle confirm input last-char reveal
+  // simple confirm input handler
   const onChangeConfirm = (value: string) => {
-    if (confirmLastTimeout.current) {
-      clearTimeout(confirmLastTimeout.current as any);
-      confirmLastTimeout.current = null;
-    }
-    if (!showConfirmPassword && value.length > confirmPassword.length) {
-      setShowConfirmLast(true);
-      confirmLastTimeout.current = window.setTimeout(() => {
-        setShowConfirmLast(false);
-        confirmLastTimeout.current = null;
-      }, 700);
-    }
     setConfirmPassword(value);
   };
 
@@ -335,41 +322,14 @@ export default function SignupScreen() {
                   {/* Confirm Password */}
                   <View className="mb-4">
                     <View className="relative">
-                      {showConfirmPassword ? (
-                        <TextInput
-                          value={confirmPassword}
-                          onChangeText={onChangeConfirm}
-                          placeholder="Confirm password"
-                          placeholderTextColor="#9ca3af"
-                          secureTextEntry={false}
-                          className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
-                        />
-                      ) : (
-                        <>
-                          <TextInput
-                            value={confirmPassword}
-                            onChangeText={onChangeConfirm}
-                            keyboardType="default"
-                            secureTextEntry={false}
-                            className="absolute w-full h-full opacity-0"
-                          />
-                          <Pressable
-                            onPress={() => {
-                              /* focus captured by hidden input */
-                            }}
-                            className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base"
-                          >
-                            <Text className="text-base text-text dark:text-text-dark">
-                              {confirmPassword.length === 0
-                                ? ""
-                                : `${"•".repeat(
-                                    Math.max(0, confirmPassword.length - 1)
-                                  )}${showConfirmLast ? confirmPassword[confirmPassword.length - 1] : "•"}`}
-                            </Text>
-                          </Pressable>
-                        </>
-                      )}
-
+                      <TextInput
+                        value={confirmPassword}
+                        onChangeText={onChangeConfirm}
+                        placeholder="Confirm password"
+                        placeholderTextColor="#9ca3af"
+                        secureTextEntry={!showConfirmPassword}
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3.5 pr-12 text-base text-text dark:border-gray-600 dark:bg-gray-700 dark:text-text-dark"
+                      />
                       <Pressable
                         onPress={() =>
                           setShowConfirmPassword(!showConfirmPassword)

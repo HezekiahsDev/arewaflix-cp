@@ -24,6 +24,7 @@ import {
   postCommentReaction,
   postVideoComment,
 } from "@/lib/api/video-interactions";
+import { findBlockedWords } from "@/lib/moderation";
 import { useRouter } from "expo-router";
 
 const CDN_BASE_URL = "https://arewaflix.s3.us-east-005.backblazeb2.com/";
@@ -378,6 +379,15 @@ export default function ShortsCommentModal({
     setIsPostingComment(true);
     setCommentsError(null);
     try {
+      // Client-side moderation: block comments containing disallowed words
+      const matches = findBlockedWords(trimmed);
+      if (matches.length) {
+        setCommentsError(
+          "Your comment contains language that violates our community guidelines. Please edit and try again."
+        );
+        setIsPostingComment(false);
+        return;
+      }
       await postVideoComment(videoId, trimmed, token);
       setCommentDraft("");
       await loadComments(1);

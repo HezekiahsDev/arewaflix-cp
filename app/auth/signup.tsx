@@ -439,11 +439,7 @@ export default function SignupScreen() {
                         By creating your account, you agree to our{" "}
                         <Text
                           className="font-semibold text-primary"
-                          onPress={() =>
-                            WebBrowser.openBrowserAsync(
-                              "https://arewaflix.com/terms/terms"
-                            )
-                          }
+                          onPress={() => router.push("/eula")}
                         >
                           Terms of use
                         </Text>{" "}

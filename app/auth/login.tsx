@@ -248,11 +248,7 @@ export default function LoginScreen() {
                       By logging in, you agree to our{" "}
                       <Text
                         className="font-semibold underline text-primary"
-                        onPress={() =>
-                          WebBrowser.openBrowserAsync(
-                            "https://arewaflix.com/terms/terms"
-                          )
-                        }
+                        onPress={() => router.push("/eula")}
                       >
                         Terms of Service
                       </Text>{" "}

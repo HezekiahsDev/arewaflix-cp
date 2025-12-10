@@ -1,12 +1,19 @@
+import TrackingPermissionPrompt from "@/components/TrackingPermissionPrompt";
 import "@/lib/disable-console";
 import { registerForPushNotificationsAsync } from "@/lib/notifications";
+import {
+  requestTrackingPermission,
+  shouldRequestTracking,
+} from "@/lib/tracking-transparency";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
+import Constants from "expo-constants";
 import { useFonts } from "expo-font";
 import { Stack, usePathname, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -97,6 +104,7 @@ function RootLayoutNav() {
     "",
     "(tabs)",
     "/(tabs)",
+    "/eula",
     "/shorts",
     "/trending",
     "/search",
@@ -131,7 +139,13 @@ function RootLayoutNav() {
 
   // Register for push notifications on app start (will prompt the user for permission)
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+
+    const ATT_SHOWN_KEY = "@arewaflix:att_prompt_shown";
+    const ATT_DECLINED_TS_KEY = "@arewaflix:att_declined_ts";
+    const ATT_DECLINE_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+
+    const runStartup = async () => {
       try {
         const token = await registerForPushNotificationsAsync();
         if (token) {
@@ -140,8 +154,104 @@ function RootLayoutNav() {
       } catch (e) {
         console.warn("Push registration failed:", e);
       }
+    };
+
+    (async () => {
+      try {
+        // Check if we should request ATT (only true on iOS when not determined)
+        const shouldRequest = await shouldRequestTracking();
+
+        if (shouldRequest) {
+          // If we've already shown our pre-permission prompt before, skip
+          // showing it again to avoid repetition for reviewers.
+          const shown = await AsyncStorage.getItem(ATT_SHOWN_KEY);
+          if (shown) {
+            // We've shown pre-permission previously; do not auto-request.
+            // Proceed with other startup tasks.
+            if (!cancelled) await runStartup();
+            return;
+          }
+
+          // If the user previously declined, check cooldown. If still in
+          // cooldown, skip showing the prompt and continue startup.
+          const declinedTsStr = await AsyncStorage.getItem(ATT_DECLINED_TS_KEY);
+          if (declinedTsStr) {
+            const declinedTs = Number(declinedTsStr) || 0;
+            const elapsed = Date.now() - declinedTs;
+            if (elapsed < ATT_DECLINE_COOLDOWN_MS) {
+              if (!cancelled) await runStartup();
+              return;
+            }
+          }
+
+          // Otherwise, show the pre-permission modal by setting a flag in
+          // state. The modal handlers will call requestTrackingPermission()
+          // or decline and then continue startup.
+          if (!cancelled) setShowTrackingPrompt(true);
+        } else {
+          // No ATT required (not iOS or already determined) — continue startup
+          if (!cancelled) await runStartup();
+        }
+      } catch (err) {
+        console.warn("ATT permission check failed:", err);
+        if (!cancelled) await runStartup();
+      }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const [showTrackingPrompt, setShowTrackingPrompt] = useState(false);
+
+  const handleTrackingAccept = async () => {
+    const ATT_SHOWN_KEY = "@arewaflix:att_prompt_shown";
+    try {
+      await AsyncStorage.setItem(ATT_SHOWN_KEY, "1");
+    } catch (e) {
+      // ignore
+    }
+
+    try {
+      await requestTrackingPermission();
+    } catch (err) {
+      console.warn("ATT request failed:", err);
+    }
+
+    setShowTrackingPrompt(false);
+    // Continue with startup tasks (register push)
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        // TODO: send token to backend
+      }
+    } catch (e) {
+      console.warn("Push registration failed:", e);
+    }
+  };
+
+  const handleTrackingDecline = async () => {
+    // Persist a decline timestamp so we re-prompt after the cooldown expires
+    const ATT_DECLINED_TS_KEY = "@arewaflix:att_declined_ts";
+    try {
+      await AsyncStorage.setItem(ATT_DECLINED_TS_KEY, String(Date.now()));
+    } catch (e) {
+      // ignore
+    }
+
+    setShowTrackingPrompt(false);
+
+    // Continue with startup tasks without requesting ATT
+    try {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        // TODO: send token to backend
+      }
+    } catch (e) {
+      console.warn("Push registration failed:", e);
+    }
+  };
 
   // Configure global audio mode so video playback produces sound even when
   // the device is in silent mode (iOS) and to set sensible interruption
@@ -189,6 +299,14 @@ function RootLayoutNav() {
         >
           <StatusBar style={Colors[scheme].statusBarStyle} />
           {!isAuthRoute && !isFullscreen && <AppHeader colorScheme={scheme} />}
+          <TrackingPermissionPrompt
+            visible={showTrackingPrompt}
+            onAccept={handleTrackingAccept}
+            onDecline={handleTrackingDecline}
+            privacyUrl={
+              (Constants as any)?.expoConfig?.extra?.privacyPolicyUrl || null
+            }
+          />
           <View style={{ flex: 1 }}>
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -201,6 +319,7 @@ function RootLayoutNav() {
                 }}
               />
               <Stack.Screen name="see-all" options={{ headerShown: false }} />
+              <Stack.Screen name="eula" options={{ headerShown: false }} />
             </Stack>
           </View>
         </SafeAreaView>

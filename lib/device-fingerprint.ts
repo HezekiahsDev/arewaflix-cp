@@ -23,7 +23,7 @@ const FINGERPRINT_KEY = "@arewaflix:device_fingerprint";
  * IMPORTANT: This function requests App Tracking Transparency (ATT) permission on iOS
  * before generating the fingerprint, as required by Apple's App Store guidelines.
  */
-export async function getDeviceFingerprint(): Promise<string> {
+export async function getDeviceFingerprint(): Promise<string | null> {
   try {
     // Request tracking permission on iOS (required for App Store compliance)
     // This will show the ATT dialog if not yet determined
@@ -38,11 +38,16 @@ export async function getDeviceFingerprint(): Promise<string> {
     // Check if tracking is authorized
     const trackingAuthorized = await isTrackingAuthorized();
 
-    // Generate a new fingerprint
-    // If tracking is not authorized, we use a limited fingerprint
-    const installationId = trackingAuthorized
-      ? Constants.installationId || Constants.sessionId || "unknown"
-      : "anonymous";
+    // If tracking is not authorized, do NOT persist a device identifier.
+    // Returning null signals callers to skip any tracking that would link
+    // this device to other identifiers.
+    if (!trackingAuthorized) {
+      return null;
+    }
+
+    // Generate a new persistent fingerprint and store it
+    const installationId =
+      Constants.installationId || Constants.sessionId || "unknown";
     const platform = Platform.OS;
     const version = Platform.Version;
     const randomSuffix = Math.random().toString(36).substring(2, 15);

@@ -268,9 +268,7 @@ export default function ProfileScreen() {
             ).catch(console.error);
             break;
           case "option-8": // Terms of Service
-            WebBrowser.openBrowserAsync(
-              "https://arewaflix.com/terms/terms"
-            ).catch(console.error);
+            router.push("/eula");
             break;
           case "option-9": // Sign Out
             handleSignOut();

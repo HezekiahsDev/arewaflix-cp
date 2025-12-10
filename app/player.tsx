@@ -19,6 +19,7 @@ import {
   VideoComment,
 } from "@/lib/api/video-interactions";
 import { getDeviceFingerprint } from "@/lib/device-fingerprint";
+import { findBlockedWords } from "@/lib/moderation";
 import {
   Audio,
   AVPlaybackStatus,
@@ -697,14 +698,21 @@ export default function PlayerScreen() {
       hasTracked = true;
 
       try {
-        // Get persistent device fingerprint to prevent Sybil attacks
+        // Get persistent device fingerprint to prevent Sybil attacks.
+        // If the user denied ATT, `getDeviceFingerprint()` will return null
+        // and we must NOT call the tracking endpoint.
         const fingerprint = await getDeviceFingerprint();
+        if (!fingerprint) {
+          // Tracking not authorized — skip view tracking
+          return;
+        }
+
         const response = await trackVideoView(videoId, {
           fingerprint,
           userId: user?.id,
         });
       } catch (error) {
-        // Failed to track view
+        // Failed to track view — non-fatal
       }
     })();
   }, [videoId, isLoaded, isPlaying, user]);
@@ -984,6 +992,15 @@ export default function PlayerScreen() {
     setIsPostingComment(true);
     setCommentsError(null);
     try {
+      // Client-side moderation: block comments containing disallowed words
+      const matches = findBlockedWords(trimmed);
+      if (matches.length) {
+        setCommentsError(
+          "Your comment contains language that violates our community guidelines. Please edit and try again."
+        );
+        setIsPostingComment(false);
+        return;
+      }
       await postVideoComment(videoId, trimmed, token);
       setCommentDraft("");
 

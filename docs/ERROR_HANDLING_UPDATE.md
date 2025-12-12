@@ -85,7 +85,7 @@ All API functions (`login`, `signup`, `getProfile`) now:
   "errors": [
     {
       "field": "username",
-      "message": "Username is already taken."
+      "message": "Username is already unavailable."
     },
     {
       "field": "email",

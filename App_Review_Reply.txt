@@ -1,0 +1,46 @@
+Hello App Review Team,
+
+Thank you for reviewing our submission (Submission ID: 0937deac-5525-4941-b580-14098cc9f253 — Review date: December 10, 2025 — Review Device: iPad Air (5th gen) — Version reviewed: 1.0). This update addresses Guideline **1.2 (User-Generated Content)** and Guideline **5.1.2 (App Tracking Transparency)**. Below is a short summary of the changes and how to validate them.
+
+Summary of changes
+
+- Moderation (Guideline 1.2)
+  - Added a client-side blocked-words filter that prevents posting comments containing prohibited terms and redacts content where appropriate.
+  - Implemented a user block mechanism available from the reporting flow and user profile: blocking removes the offender’s content from the blocker’s feed instantly and records the event in our moderation backend so developers/moderators are notified. The report flow continues to allow flagging and optional blocking.
+  - Implemented content blocking so users can block individual videos and creators; any blocked video or videos from blocked creators are filtered out of the blocker’s feed immediately. Reviewers can access blocking from any video by tapping the **More (•••)** options button and selecting **Block** — this opens the **Block Content** modal where you select a reason and optionally check **"Block all videos from this creator"** to block the creator as well. You can also block a user from the **Report** modal by selecting the **"Block this user"** checkbox when reporting a comment.
+
+- App Tracking Transparency (Guideline 5.1.2)
+  - Added a clear pre-permission modal that explains tracking and privacy. We present the system ATT dialog only if the user accepts the pre-permission prompt. If the user denies tracking, we do not generate, persist, or send a device fingerprint to analytics or view-tracking endpoints.
+
+
+
+How to validate
+
+(Note: TestFlight or a native device build is required — ATT dialogs do not appear in Expo Go.)
+
+1. Install the TestFlight / native build (version: 1.0.0, build: 1.0.29).
+
+2. ATT behavior:
+   - Launch app → observe pre-permission tracking prompt (first time installation only you can manage permission in settings later).
+   - If you accept the pre-permission prompt, the system ATT dialog will appear and, after accepting, a view-tracking POST will include a fingerprint in the request body.
+   - If you decline pre-permission, no fingerprint will be generated or sent and tracking calls are skipped.
+   - Note: NSUserTrackingUsageDescription is included in build metadata for reviewer visibility.
+3. Moderation & blocking:
+  - Log in (see test account below).
+  - Attempt to post a comment containing an offensive/blocked test word — the app will block submission or redact the content per policy.
+  - Use the reporting UI to report and block an offending user; observe that the offending content is removed from the reporting user’s feed immediately and a moderation notification is generated server-side.
+  - Block a video and block a creator: from any video, open the options menu ("•••") and select Block to open the Block Content modal; select a reason and optionally check "Block all videos from this creator" before tapping Block. Alternatively, when reporting a comment you can check "Block this user" in the Report modal to block that user. Confirm the blocked video is removed from your feed and that videos from the blocked creator no longer appear for your account.
+4. If you need, we can provide additional verification logs, short screen recordings, or a guided walkthrough.
+
+Test account credentials
+
+- Username: tester
+- Password: tester123
+
+We can create additional accounts on request.
+
+If you prefer, we can provide a guided walkthrough of the flows via TestFlight. Please let us know if you need the version/build filled in or any additional artifacts.
+
+Thank you for your time — please let us know if you need any further validation or additional artifacts.
+
+— The Arewaflix Team

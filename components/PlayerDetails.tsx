@@ -1,6 +1,7 @@
+import OptionsMenu from "@/components/ui/OptionsMenu";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback } from "react";
+import React, { memo, useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,7 +17,7 @@ import {
 import CommentItem from "./player/CommentItem";
 import SocialButton from "./player/SocialButton";
 
-export default function PlayerDetails(props: any) {
+const PlayerDetails = memo(function PlayerDetails(props: any) {
   const {
     styles,
     displayTitle,
@@ -29,6 +30,7 @@ export default function PlayerDetails(props: any) {
     handleDislikePress,
     handleSavePress,
     handleReportPress,
+    handleBlockPress,
     likesError,
     comments,
     commentDraft,
@@ -47,17 +49,87 @@ export default function PlayerDetails(props: any) {
   } = props;
 
   const router = useRouter();
+  const [showOptions, setShowOptions] = useState(false);
+
+  // Memoize login check
+  const needsLogin = useMemo(
+    () => commentsError === "Please login to view comments.",
+    [commentsError]
+  );
+
   // Helper to ensure user is authenticated before performing an action
-  const ensureAuth = (fn?: (...args: any[]) => void) => {
-    return (...args: any[]) => {
-      if (!token) {
-        router.push("/auth/login");
-        return;
-      }
-      fn?.(...args);
-    };
-  };
-  const needsLogin = commentsError === "Please login to view comments.";
+  const ensureAuth = useCallback(
+    (fn?: (...args: any[]) => void) => {
+      return (...args: any[]) => {
+        if (!token) {
+          router.push("/auth/login");
+          return;
+        }
+        fn?.(...args);
+      };
+    },
+    [token, router]
+  );
+
+  // Memoize menu items to prevent unnecessary re-renders
+  const menuItems = useMemo(
+    () => [
+      {
+        key: "report",
+        label: "Report",
+        icon: "flag-outline" as const,
+        onPress: () => ensureAuth(() => handleReportPress?.())(),
+      },
+      {
+        key: "block",
+        label: "Block",
+        icon: "ban-outline" as const,
+        destructive: true,
+        onPress: () => ensureAuth(() => handleBlockPress?.())(),
+      },
+    ],
+    [ensureAuth, handleReportPress, handleBlockPress]
+  );
+
+  // Callbacks used by the comments list — defined unconditionally so hook
+  // invocation order stays consistent across renders and we don't trigger
+  // "rendered more hooks than during the previous render" when
+  // `comments.length` changes.
+  const keyExtractor = useCallback((item: any) => `comment-${item.id}`, []);
+
+  const renderCommentItem = useCallback(
+    ({ item }: any) => (
+      <CommentItem
+        comment={item}
+        isLiked={likedCommentIds.has(String(item.id))}
+        onLikePress={toggleLikeComment}
+        onReportPress={(cid: string, uid: string) => {
+          if (!token) {
+            router.push("/auth/login");
+            return;
+          }
+          handleReportPress?.(cid, uid);
+        }}
+        disabled={likingCommentId === String(item.id)}
+        resolveAvatarUri={resolveAvatarUri}
+        styles={styles}
+      />
+    ),
+    [
+      likedCommentIds,
+      toggleLikeComment,
+      handleReportPress,
+      resolveAvatarUri,
+      styles,
+      token,
+      router,
+      likingCommentId,
+    ]
+  );
+
+  const handleEndReached = useCallback(() => {
+    loadMoreComments();
+  }, [loadMoreComments]);
 
   return (
     <View style={styles.detailsContainer}>
@@ -104,14 +176,19 @@ export default function PlayerDetails(props: any) {
         />
 
         <SocialButton
-          icon="flag-outline"
-          label="Report"
-          onPress={ensureAuth(() => handleReportPress && handleReportPress())}
+          icon="ellipsis-vertical"
+          label="More"
+          onPress={useCallback(() => setShowOptions(true), [])}
           style={styles.socialButton}
           labelStyle={styles.socialLabel}
-          iconColor="#ff3b30"
         />
       </View>
+
+      <OptionsMenu
+        visible={showOptions}
+        onClose={useCallback(() => setShowOptions(false), [])}
+        items={menuItems}
+      />
 
       {likesError && (
         <View style={styles.errorBanner}>
@@ -167,7 +244,7 @@ export default function PlayerDetails(props: any) {
                     if (needsLogin) {
                       router.push("/auth/login");
                     } else {
-                      // Attempt a reload by emitting a navigation refresh or trigger parent
+                      // TODO: Attempt a reload by emitting a navigation refresh or trigger parent
                     }
                   }}
                   style={{ marginLeft: 12 }}
@@ -198,41 +275,15 @@ export default function PlayerDetails(props: any) {
             ) : comments.length ? (
               <FlatList
                 data={comments}
-                keyExtractor={(item: any, index: number) =>
-                  `${item.id}-${index}`
-                }
+                keyExtractor={keyExtractor}
                 contentContainerStyle={styles.commentList}
-                renderItem={useCallback(
-                  ({ item }: any) => (
-                    <CommentItem
-                      comment={item}
-                      isLiked={likedCommentIds.has(String(item.id))}
-                      onLikePress={(id: any) =>
-                        ensureAuth(toggleLikeComment)(id)
-                      }
-                      onReportPress={(cid: string, uid: string) =>
-                        ensureAuth(
-                          (c: string, u: string) =>
-                            handleReportPress && handleReportPress(c, u)
-                        )(cid, uid)
-                      }
-                      disabled={likingCommentId === String(item.id)}
-                      resolveAvatarUri={resolveAvatarUri}
-                      styles={styles}
-                    />
-                  ),
-                  [
-                    likedCommentIds,
-                    toggleLikeComment,
-                    handleReportPress,
-                    resolveAvatarUri,
-                    styles,
-                    token,
-                    likingCommentId,
-                  ]
-                )}
-                onEndReached={() => loadMoreComments()}
+                renderItem={renderCommentItem}
+                onEndReached={handleEndReached}
                 onEndReachedThreshold={0.5}
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={10}
+                windowSize={11}
+                initialNumToRender={10}
                 ListFooterComponent={
                   isLoadingMoreComments ? (
                     <ActivityIndicator size="small" color="#fff" />
@@ -249,4 +300,6 @@ export default function PlayerDetails(props: any) {
       </View>
     </View>
   );
-}
+});
+
+export default PlayerDetails;

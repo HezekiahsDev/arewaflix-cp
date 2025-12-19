@@ -15,7 +15,10 @@ function readDisableFlagFromConfig(): boolean | undefined {
     const asAny = Constants as unknown as any;
 
     const maybeExtra =
-      asAny.expoConfig?.extra ?? asAny.manifest?.extra ?? asAny.manifest2?.extra ?? asAny.manifest?.extra;
+      asAny.expoConfig?.extra ??
+      asAny.manifest?.extra ??
+      asAny.manifest2?.extra ??
+      asAny.manifest?.extra;
 
     if (maybeExtra && typeof maybeExtra.disableConsoleInProd !== "undefined") {
       return Boolean(maybeExtra.disableConsoleInProd);
@@ -31,15 +34,25 @@ const disableConsoleInNonDev = () => {
     const flag = readDisableFlagFromConfig();
 
     // Default behavior: disable consoles if not DEV and flag !== false.
-    const notDev = typeof __DEV !== "undefined" ? !__DEV : true;
+    const notDev = typeof __DEV__ !== "undefined" ? !__DEV__ : true;
 
     if (notDev && flag !== false) {
       const noop = () => {};
-      const methods = ["log", "info", "warn", "error", "debug", "trace"] as const;
+      const methods = [
+        "log",
+        "info",
+        "warn",
+        "error",
+        "debug",
+        "trace",
+      ] as const;
 
       methods.forEach((m) => {
         // @ts-ignore
-        if (typeof console !== "undefined" && typeof console[m] === "function") {
+        if (
+          typeof console !== "undefined" &&
+          typeof console[m] === "function"
+        ) {
           // @ts-ignore
           console[m] = noop;
         }
@@ -52,5 +65,4 @@ const disableConsoleInNonDev = () => {
 
 disableConsoleInNonDev();
 
-export { };
-
+export {};

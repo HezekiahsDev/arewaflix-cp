@@ -12,6 +12,16 @@ export const API_BASE_URL = getSanitizedBaseUrl(
 
 //console.log("🌐 API_BASE_URL:", API_BASE_URL);
 
+// One-time runtime log to help debug API base URL during development.
+// Only log in development to avoid noise in production.
+if (
+  typeof __DEV__ !== "undefined"
+    ? __DEV__
+    : process.env.NODE_ENV !== "production"
+) {
+  console.info("🌐 API_BASE_URL:", API_BASE_URL);
+}
+
 // Helper function to get more specific error messages
 const getNetworkErrorMessage = (error: any): string => {
   if (error.message?.includes("Network request failed")) {

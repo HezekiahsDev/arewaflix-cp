@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import BlockContentModal from "@/components/BlockContentModal";
 import ReportModal from "@/components/ReportModal";
 import ShortPlayerCard from "@/components/ShortPlayerCard";
 import ShortsCommentModal from "@/components/ShortsCommentModal";
@@ -183,6 +184,10 @@ export default function ShortsScreen() {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportingVideoId, setReportingVideoId] = useState<string | null>(null);
 
+  // Block modal state
+  const [blockModalVisible, setBlockModalVisible] = useState(false);
+  const [blockingVideoId, setBlockingVideoId] = useState<string | null>(null);
+
   const COMMENTS_PAGE_LIMIT = 20;
 
   const requestRef = useRef<AbortController | null>(null);
@@ -206,6 +211,12 @@ export default function ShortsScreen() {
     if (commentId) return;
     setReportingVideoId(videoId ?? null);
     setReportModalVisible(true);
+  }, []);
+
+  // Handle opening block modal
+  const handleBlock = useCallback((videoId: string) => {
+    setBlockingVideoId(videoId);
+    setBlockModalVisible(true);
   }, []);
 
   // Lower threshold to make activation a bit more permissive for shorter screens,
@@ -394,6 +405,7 @@ export default function ShortsScreen() {
             bottomInset={insets.bottom}
             onOpenComments={handleOpenComments}
             onReport={handleReport}
+            onBlock={handleBlock}
           />
         </View>
       );
@@ -811,6 +823,26 @@ export default function ShortsScreen() {
         onSuccess={() => {
           setReportModalVisible(false);
           setReportingVideoId(null);
+        }}
+      />
+
+      {/* Block Modal */}
+      <BlockContentModal
+        visible={blockModalVisible}
+        onClose={() => {
+          setBlockModalVisible(false);
+          setBlockingVideoId(null);
+        }}
+        videoId={blockingVideoId}
+        creatorId={null}
+        token={token}
+        onSuccess={() => {
+          setBlockModalVisible(false);
+          setBlockingVideoId(null);
+          // Remove the blocked video from the list
+          setShorts((prev) =>
+            prev.filter((short) => short.video.id !== blockingVideoId)
+          );
         }}
       />
     </View>

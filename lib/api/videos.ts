@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { NativeModules, Platform } from "react-native";
 
@@ -212,13 +213,39 @@ async function request(
   const query = buildQuery(params);
   const url = `${SERVICE_BASE_URL}${path}${query}`;
 
+  // Build headers in a deterministic way so we can optionally attach
+  // the Authorization header when an auth token exists in AsyncStorage.
+  const headers = new Headers({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  });
+
+  // Merge any provided headers from the caller
+  if (init.headers) {
+    const provided = new Headers(init.headers as HeadersInit);
+    provided.forEach((value, key) => headers.set(key, value));
+  }
+
+  // If an Authorization header wasn't provided, attempt to load the
+  // stored auth token and attach it. This ensures authenticated users
+  // receive filtered results while unauthenticated users get the
+  // unfiltered feed.
+  if (!headers.has("Authorization")) {
+    try {
+      const token = await AsyncStorage.getItem("auth_token");
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+    } catch (e) {
+      // Ignore storage errors and proceed without auth header.
+      // Do not fail the request because of storage issues.
+      console.warn("videos.request: failed to read auth token", e);
+    }
+  }
+
   const response = await fetch(url, {
     method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...(init.headers ?? {}),
-    },
+    headers,
     signal: init.signal,
   });
 

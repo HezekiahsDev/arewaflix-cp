@@ -807,6 +807,121 @@ export async function blockUser(
   return payload;
 }
 
+/**
+ * Block a video
+ */
+export async function blockVideo(
+  videoId: string | number,
+  reason: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<any> {
+  const url = `${API_BASE_URL}/api/v1/video-block/block/${videoId}`;
+  const body = { reason };
+
+  // Debug log: outgoing request
+  // NOTE: token is sensitive so we only log its presence, not the full value
+  console.debug("[API] blockVideo ->", { url, body, tokenPresent: !!token });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  const text = await response.text();
+  let payload: any;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to block video: ${response.status} ${response.statusText} - ${text}`
+      );
+    }
+    throw err;
+  }
+
+  // Debug log: incoming response
+  console.debug("[API] blockVideo <-", {
+    url,
+    status: response.status,
+    ok: response.ok,
+    payload,
+    rawText: text,
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to block video: ${response.status} ${response.statusText} - ${JSON.stringify(payload)}`
+    );
+  }
+
+  return payload;
+}
+
+/**
+ * Block a creator (user)
+ */
+export async function blockCreator(
+  creatorId: string | number,
+  reason: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<any> {
+  const url = `${API_BASE_URL}/api/v1/block-creator/block/${creatorId}`;
+  const body = { reason };
+
+  // Debug log: outgoing request
+  console.debug("[API] blockCreator ->", { url, body, tokenPresent: !!token });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  const text = await response.text();
+  let payload: any;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    if (!response.ok) {
+      throw new Error(
+        `Failed to block creator: ${response.status} ${response.statusText} - ${text}`
+      );
+    }
+    throw err;
+  }
+
+  // Debug log: incoming response
+  console.debug("[API] blockCreator <-", {
+    url,
+    status: response.status,
+    ok: response.ok,
+    payload,
+    rawText: text,
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to block creator: ${response.status} ${response.statusText} - ${JSON.stringify(payload)}`
+    );
+  }
+
+  return payload;
+}
+
 function getSanitizedBaseUrl(value?: string): string {
   const base = (value && value.trim()) || DEFAULT_BASE_URL;
   const trimmed = base.replace(/\/$/, "");

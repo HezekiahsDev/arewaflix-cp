@@ -1,3 +1,4 @@
+import OptionsMenu from "@/components/ui/OptionsMenu";
 import { Ionicons } from "@expo/vector-icons";
 import { AVPlaybackStatus, Video as ExpoVideo, ResizeMode } from "expo-av";
 import React, {
@@ -68,6 +69,7 @@ type ShortPlayerCardProps = {
   bottomInset: number;
   onOpenComments: (videoId: string) => void;
   onReport: (videoId: string) => void;
+  onBlock: (videoId: string) => void;
 };
 
 function formatTime(millis: number): string {
@@ -144,6 +146,7 @@ export default React.memo(
     bottomInset,
     onOpenComments,
     onReport,
+    onBlock,
   }: ShortPlayerCardProps) {
     const { user, token } = useAuth();
     const router = useRouter();
@@ -173,6 +176,7 @@ export default React.memo(
     const [comments, setComments] = useState<VideoComment[]>([]);
     const [isLoadingLikes, setIsLoadingLikes] = useState(false);
     const [isPostingReaction, setIsPostingReaction] = useState(false);
+    const [showOptions, setShowOptions] = useState(false);
 
     const lastTap = useRef<number>(0);
     const doubleTapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -257,7 +261,7 @@ export default React.memo(
             page: 1,
             limit: 1,
             signal: controller.signal,
-            token,
+            token: token ?? undefined,
           });
           if (controller.signal.aborted) return;
           setComments(commentsResp.data || []);
@@ -283,6 +287,11 @@ export default React.memo(
       if (!videoId || isPostingReaction) return;
       setIsPostingReaction(true);
       try {
+        if (!token) {
+          router.push("/auth/login");
+          return;
+        }
+
         const response = await postVideoReaction(videoId, "like", token);
         if (response?.data?.likes !== undefined) setLikes(response.data.likes);
         try {
@@ -766,20 +775,47 @@ export default React.memo(
 
           <Pressable
             style={{ alignItems: "center", marginBottom: 18 }}
-            onPress={() => {
-              if (!token) {
-                router.push("/auth/login");
-                return;
-              }
-              onReport(videoId);
-            }}
+            onPress={() => setShowOptions(true)}
           >
-            <Ionicons name="flag-outline" size={26} color="#ff3b30" />
+            <Ionicons name="ellipsis-vertical" size={26} color="#fff" />
             <Text style={{ color: "#fff", fontSize: 12, marginTop: 6 }}>
-              Report
+              More
             </Text>
           </Pressable>
         </View>
+
+        <OptionsMenu
+          visible={Boolean(showOptions)}
+          onClose={() => setShowOptions(false)}
+          items={[
+            {
+              key: "report",
+              label: "Report",
+              icon: "flag-outline",
+              destructive: false,
+              onPress: () => {
+                if (!token) {
+                  router.push("/auth/login");
+                  return;
+                }
+                onReport(videoId);
+              },
+            },
+            {
+              key: "block",
+              label: "Block",
+              icon: "ban-outline",
+              destructive: true,
+              onPress: () => {
+                if (!token) {
+                  router.push("/auth/login");
+                  return;
+                }
+                onBlock(videoId);
+              },
+            },
+          ]}
+        />
 
         <View
           style={{
@@ -804,5 +840,6 @@ export default React.memo(
     prev.topInset === next.topInset &&
     prev.bottomInset === next.bottomInset &&
     prev.onOpenComments === next.onOpenComments &&
-    prev.onReport === next.onReport
+    prev.onReport === next.onReport &&
+    prev.onBlock === next.onBlock
 );

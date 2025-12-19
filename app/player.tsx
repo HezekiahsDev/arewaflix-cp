@@ -1,3 +1,4 @@
+import BlockContentModal from "@/components/BlockContentModal";
 import PlayerDetails from "@/components/PlayerDetails";
 import PlayerVideoContainer from "@/components/PlayerVideoContainer";
 import ReportModal from "@/components/ReportModal";
@@ -383,6 +384,9 @@ export default function PlayerScreen() {
     null
   );
   const [reportingUserId, setReportingUserId] = useState<string | null>(null);
+
+  // Block modal state
+  const [blockModalVisible, setBlockModalVisible] = useState(false);
 
   // Saved state (local for demo - should be persisted)
   const [isSaved, setIsSaved] = useState(false);
@@ -980,6 +984,10 @@ export default function PlayerScreen() {
     []
   );
 
+  const handleBlockPress = useCallback(() => {
+    setBlockModalVisible(true);
+  }, []);
+
   const handleSubmitComment = useCallback(async () => {
     const trimmed = commentDraft.trim();
     if (!trimmed.length || !videoId || !token) {
@@ -1326,6 +1334,7 @@ export default function PlayerScreen() {
             handleDislikePress={handleDislikePress}
             handleSavePress={handleSavePress}
             handleReportPress={handleReportPress}
+            handleBlockPress={handleBlockPress}
             likesError={likesError}
             comments={comments}
             commentDraft={commentDraft}
@@ -1359,6 +1368,20 @@ export default function PlayerScreen() {
               setReportModalVisible(false);
               setReportingCommentId(null);
               setReportingUserId(null);
+            }}
+          />
+
+          <BlockContentModal
+            visible={blockModalVisible}
+            onClose={() => {
+              setBlockModalVisible(false);
+            }}
+            videoId={videoId ?? null}
+            creatorId={null}
+            token={token ?? null}
+            onSuccess={() => {
+              setBlockModalVisible(false);
+              router.back();
             }}
           />
         </>
@@ -1633,45 +1656,59 @@ const styles = StyleSheet.create({
   title: {
     color: "#fff",
     fontSize: 20,
-    fontWeight: "600",
-    marginBottom: 16,
+    fontWeight: "700",
+    marginBottom: 18,
+    lineHeight: 28,
+    letterSpacing: 0.3,
   },
   socialRow: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 24,
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 4,
+    marginBottom: 20,
+    paddingHorizontal: 2,
   },
   socialButton: {
-    flexGrow: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    paddingVertical: 12,
-    borderRadius: 16,
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 76,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
   },
   socialButtonActive: {
-    backgroundColor: "rgba(56,189,248,0.25)",
+    backgroundColor: "rgba(14,165,233,0.2)",
+    borderColor: "rgba(14,165,233,0.3)",
   },
   socialLabel: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
+    letterSpacing: 0.2,
   },
   socialCount: {
-    color: "rgba(255,255,255,0.65)",
+    color: "rgba(255,255,255,0.7)",
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 3,
+    fontWeight: "500",
   },
   commentsSection: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.12)",
-    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+    paddingTop: 16,
+    marginTop: 8,
   },
   sectionTitle: {
     color: "#fff",
     fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 12,
+    fontWeight: "700",
+    marginBottom: 16,
+    letterSpacing: 0.2,
   },
   commentInputRow: {
     flexDirection: "row",
@@ -1705,11 +1742,19 @@ const styles = StyleSheet.create({
   commentList: {
     gap: 12,
   },
+  commentListWrapper: {
+    maxHeight: 300,
+  },
+  commentsKeyboardAvoid: {
+    width: "100%",
+  },
   commentBubble: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
   },
   commentHeader: {
     flexDirection: "row",
@@ -1745,9 +1790,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   commentText: {
-    color: "#fff",
-    fontSize: 14,
-    lineHeight: 20,
+    color: "#f9fafb",
+    fontSize: 15,
+    lineHeight: 22,
+    letterSpacing: 0.1,
   },
   commentMeta: {
     color: "rgba(255,255,255,0.5)",

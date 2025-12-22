@@ -131,7 +131,7 @@ export interface SignupRequest {
   username: string;
   email: string;
   password: string;
-  gender: string;
+  gender?: string;
 }
 
 export interface LoginRequest {

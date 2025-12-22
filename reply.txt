@@ -1,0 +1,30 @@
+Hello App Review team,
+
+Thank you for reviewing our resubmission (Submission ID: 0937deac-5525-4941-b580-14098cc9f253).
+
+We addressed the issues you identified. Summary of changes and verification steps below.
+
+Build: [BUILD_NUMBER]
+Commit: [COMMIT_SHA]
+
+1) Guideline 2.3.3 — Screenshots (13-inch iPad)
+- Action: We will replace the 13-inch iPad screenshots with screenshots captured from an iPad or the iPad Simulator so they accurately reflect the app UI on that device.
+- Where to verify: Previews & Screenshots → select “View All Sizes in Media Manager” and check the 13-inch iPad slot. We will upload the new 13-inch screenshots shortly and notify you when they are live.
+
+2) Guideline 5.1.1 — AppTrackingTransparency pre-permission
+- Action: We removed the exit/delay option from the custom pre-permission modal. The pre-permission modal now provides a single action that proceeds directly to the iOS system ATT prompt.
+- Files changed: `components/TrackingPermissionPrompt.tsx`, `app/_layout.tsx`.
+- How to verify: Launch the app on iPad, the pre-permission modal should appear; tapping “Continue” immediately opens the system ATT prompt. The modal cannot be dismissed to avoid the system prompt.
+
+3) Guideline 5.1.1 — Personal Data (Gender)
+- Action: `Gender` is no longer required. We removed the field from the signup UI and the signup request no longer sends gender by default.
+- Files changed: `app/auth/signup.tsx`, `lib/api/auth.ts`.
+- How to verify: On an iPad, complete the signup flow without providing gender — account creation should succeed and not be blocked by missing gender.
+
+Additional notes
+- If you would like, we can provide a short video demonstrating the ATT flow and a signup without gender, or provide test account credentials for verification.
+
+Thank you for your review and guidance — we appreciate the feedback and look forward to your re-evaluation.
+
+Best regards,
+The Arewaflix Team

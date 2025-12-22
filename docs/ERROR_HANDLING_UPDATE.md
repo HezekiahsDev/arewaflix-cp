@@ -120,7 +120,7 @@ email: An account with this email already exists.
 ```json
 {
   "success": false,
-  "message": "Username, email, password, and gender are required."
+  "message": "Username, email, and password are required."
 }
 ```
 

@@ -23,7 +23,18 @@ export default function TrackingPermissionPrompt({
   privacyUrl,
 }: Props) {
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => {
+        try {
+          onAccept();
+        } catch {
+          // ignore
+        }
+      }}
+    >
       <View style={styles.backdrop}>
         <View style={styles.container}>
           <Text style={styles.title}>Allow tracking?</Text>
@@ -35,19 +46,13 @@ export default function TrackingPermissionPrompt({
 
           <View style={styles.actionsRow}>
             <Pressable
-              onPress={onDecline}
-              style={[styles.button, styles.ghost]}
-            >
-              <Text style={styles.ghostText}>Not now</Text>
-            </Pressable>
-
-            <Pressable
               onPress={onAccept}
               style={[styles.button, styles.primary]}
             >
-              <Text style={styles.primaryText}>Allow</Text>
+              <Text style={styles.primaryText}>Continue</Text>
             </Pressable>
           </View>
+
           {privacyUrl ? (
             <Text
               style={[styles.note, { color: "#0ea5e9" }]}

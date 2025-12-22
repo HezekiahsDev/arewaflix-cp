@@ -30,7 +30,7 @@ export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [gender, setGender] = useState<"male" | "female" | "other" | "">("");
+
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -99,12 +99,13 @@ export default function SignupScreen() {
     setLoading(true);
 
     try {
-      const response = await signup({
+      const payload: any = {
         username,
         email,
         password,
-        gender,
-      });
+      };
+
+      const response = await signup(payload);
 
       if (response.success && response.data) {
         signIn(response.data.user, response.data.token);
@@ -352,34 +353,6 @@ export default function SignupScreen() {
                           Passwords do not match.
                         </Text>
                       )}
-                  </View>
-                  {/* Gender */}
-                  <View className="mb-4">
-                    <Text className="mb-2 text-sm font-medium text-muted dark:text-muted-dark">
-                      Gender
-                    </Text>
-                    <View className="flex-row gap-3">
-                      <Pressable
-                        onPress={() => setGender("male")}
-                        className={`rounded-full border px-4 py-2 ${gender === "male" ? "border-primary bg-primary/10" : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"}`}
-                      >
-                        <Text className="text-sm">Male</Text>
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() => setGender("female")}
-                        className={`rounded-full border px-4 py-2 ${gender === "female" ? "border-primary bg-primary/10" : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"}`}
-                      >
-                        <Text className="text-sm">Female</Text>
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() => setGender("other")}
-                        className={`rounded-full border px-4 py-2 ${gender === "other" ? "border-primary bg-primary/10" : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700"}`}
-                      >
-                        <Text className="text-sm">Other</Text>
-                      </Pressable>
-                    </View>
                   </View>
 
                   {/* Consent */}

@@ -39,9 +39,11 @@ export default function TrackingPermissionPrompt({
         <View style={styles.container}>
           <Text style={styles.title}>Allow tracking?</Text>
           <Text style={styles.body}>
-            We use a device identifier to prevent fraud and improve
-            recommendations. This identifier is never sold. Allow tracking
-            improves recommendations across devices.
+            We use a device identifier to prevent fraud, improve
+            recommendations, enable cross-device personalization, and help
+            improve the app and user experience. This identifier is never sold.
+            Allowing tracking helps us tailor recommendations and detect abuse
+            across devices.
           </Text>
 
           <View style={styles.actionsRow}>

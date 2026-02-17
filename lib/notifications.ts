@@ -49,7 +49,7 @@ export async function registerForPushNotificationsAsync(): Promise<
       if (!Constants.isDevice || Platform.OS === "web") {
         if (!Constants.isDevice) {
           console.warn(
-            "Push notifications are not supported on emulators (use a physical device)."
+            "Push notifications are not supported on emulators (use a physical device).",
           );
         }
         return null;
@@ -88,7 +88,7 @@ export async function registerForPushNotificationsAsync(): Promise<
         console.warn(
           "Failed to get push token permission (status:",
           finalStatus,
-          ")"
+          ")",
         );
         return null;
       }

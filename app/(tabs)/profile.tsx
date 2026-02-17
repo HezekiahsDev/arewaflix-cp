@@ -221,15 +221,15 @@ export default function ProfileScreen() {
                   router.replace("/");
                 },
               },
-            ]
+            ],
           );
         } else {
           setDeleteError(
-            response.message || "Failed to delete account. Please try again."
+            response.message || "Failed to delete account. Please try again.",
           );
           Alert.alert(
             "Error",
-            response.message || "Failed to delete account. Please try again."
+            response.message || "Failed to delete account. Please try again.",
           );
         }
       } catch (error: any) {
@@ -237,13 +237,13 @@ export default function ProfileScreen() {
         setDeleteError(message);
         Alert.alert(
           "Error",
-          message || "Failed to delete account. Please try again."
+          message || "Failed to delete account. Please try again.",
         );
       } finally {
         setDeleting(false);
       }
     },
-    [token, signOut, router]
+    [token, signOut, router],
   );
 
   const handleProfileOption = useCallback(
@@ -254,17 +254,17 @@ export default function ProfileScreen() {
             Alert.alert(
               "About Arewaflix",
               `Version: ${Constants.expoConfig?.version || "1.0.0"}\n\nArewaflix brings you the best of Hausa entertainment.\n\nDeveloper: Vehance IT\n\n© ${new Date().getFullYear()} Arewaflix. All rights reserved.`,
-              [{ text: "OK" }]
+              [{ text: "OK" }],
             );
             break;
           case "option-6": // Help & Support
             WebBrowser.openBrowserAsync(
-              "https://arewaflix.com/contact-us"
+              "https://arewaflix.co/contact-us",
             ).catch(console.error);
             break;
           case "option-7": // Privacy Policy
             WebBrowser.openBrowserAsync(
-              "https://arewaflix.com/terms/privacy-policy"
+              "https://arewaflix.co/terms/privacy-policy",
             ).catch(console.error);
             break;
           case "option-8": // Terms of Service
@@ -283,7 +283,7 @@ export default function ProfileScreen() {
             Alert.alert(
               "Coming Soon",
               "This feature is under development and will be available soon.",
-              [{ text: "OK" }]
+              [{ text: "OK" }],
             );
             break;
           default:
@@ -293,12 +293,12 @@ export default function ProfileScreen() {
         console.error("Error handling profile option:", error);
       }
     },
-    [handleSignOut, handleDeleteAccount]
+    [handleSignOut, handleDeleteAccount],
   );
 
   const bottomPadding = useMemo(
     () => Math.max(96, insets.bottom + 56),
-    [insets.bottom]
+    [insets.bottom],
   );
 
   if (loading) {
@@ -613,7 +613,7 @@ export default function ProfileScreen() {
                           Alert.alert(
                             "Reason required",
                             "Please select a reason for deleting your account.",
-                            [{ text: "OK" }]
+                            [{ text: "OK" }],
                           );
                           return;
                         }
@@ -625,7 +625,7 @@ export default function ProfileScreen() {
                           Alert.alert(
                             "Reason required",
                             "Please provide a reason for deleting your account.",
-                            [{ text: "OK" }]
+                            [{ text: "OK" }],
                           );
                           return;
                         }
@@ -641,7 +641,7 @@ export default function ProfileScreen() {
                               onPress: () =>
                                 performDeleteAccount(deleteReason.trim()),
                             },
-                          ]
+                          ],
                         );
                       }}
                       accessibilityRole="button"
@@ -1035,15 +1035,15 @@ export default function ProfileScreen() {
                             setShowLanguagePicker(false);
                             Alert.alert(
                               "Profile Updated",
-                              "Your profile has been updated."
+                              "Your profile has been updated.",
                             );
                           } else {
                             setUpdateError(
-                              res.message || "Failed to update profile"
+                              res.message || "Failed to update profile",
                             );
                             Alert.alert(
                               "Error",
-                              res.message || "Failed to update profile"
+                              res.message || "Failed to update profile",
                             );
                           }
                         } catch (err: any) {
@@ -1052,7 +1052,7 @@ export default function ProfileScreen() {
                           setUpdateError(message);
                           Alert.alert(
                             "Error",
-                            message || "Failed to update profile"
+                            message || "Failed to update profile",
                           );
                         } finally {
                           setUpdateLoading(false);

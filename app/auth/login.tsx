@@ -84,7 +84,7 @@ export default function LoginScreen() {
       setError(
         err instanceof Error
           ? err.message
-          : "An error occurred. Please check your credentials and try again."
+          : "An error occurred. Please check your credentials and try again.",
       );
     } finally {
       setLoading(false);
@@ -97,7 +97,7 @@ export default function LoginScreen() {
 
   const keyboardVerticalOffset = useMemo(
     () => (Platform.OS === "ios" ? 24 : 0),
-    []
+    [],
   );
 
   return (
@@ -257,7 +257,7 @@ export default function LoginScreen() {
                         className="font-semibold underline text-primary"
                         onPress={() =>
                           WebBrowser.openBrowserAsync(
-                            "https://arewaflix.com/terms/privacy-policy"
+                            "https://arewaflix.co/terms/privacy-policy",
                           )
                         }
                       >

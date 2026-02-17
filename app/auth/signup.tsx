@@ -91,7 +91,7 @@ export default function SignupScreen() {
 
     if (!consent) {
       setError(
-        "You must agree to the Terms of use & Privacy Policy to create an account."
+        "You must agree to the Terms of use & Privacy Policy to create an account.",
       );
       return;
     }
@@ -125,7 +125,7 @@ export default function SignupScreen() {
       setError(
         err instanceof Error
           ? err.message
-          : "An error occurred. Please try again later."
+          : "An error occurred. Please try again later.",
       );
     } finally {
       setLoading(false);
@@ -165,7 +165,7 @@ export default function SignupScreen() {
 
   const keyboardVerticalOffset = useMemo(
     () => (Platform.OS === "ios" ? 24 : 0),
-    []
+    [],
   );
 
   return (
@@ -381,7 +381,7 @@ export default function SignupScreen() {
                           className="font-semibold text-primary"
                           onPress={() =>
                             WebBrowser.openBrowserAsync(
-                              "https://arewaflix.com/terms/privacy-policy"
+                              "https://arewaflix.co/terms/privacy-policy",
                             )
                           }
                         >

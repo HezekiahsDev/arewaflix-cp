@@ -111,14 +111,14 @@ Depending on your location, you may have rights to:
 
 To exercise these rights, contact us at:
 
-privacy@arewaflix.com
+privacy@arewaflix.co
 
 === SUGGESTED ADDITION (Choices & Opt-Out) ===
 Your Choices
 
 - Opt-out of device analytics/fingerprinting: Go to Settings → Privacy within the app and toggle “Allow device analytics” (if available). If you opt out, we will stop generating and transmitting the device fingerprint for your installation; certain fraud-detection and personalization features may be limited.
 - Disable push notifications: Turn off notifications for Arewaflix in your device settings or use the app's notification controls.
-- Delete account and data: Request account deletion via support or privacy@arewaflix.com. We will remove associated identifiers as described in the Retention section.
+- Delete account and data: Request account deletion via support or privacy@arewaflix.co. We will remove associated identifiers as described in the Retention section.
 
 9. Cookies and Tracking Technologies
 
@@ -137,14 +137,14 @@ We may update this Privacy Policy to reflect operational or regulatory changes. 
 For any questions, complaints, or rights requests:
 
 Vehance Technologies Ltd  
-Email: support@arewaflix.com  
+Email: support@arewaflix.co  
 
 Kano, Nigeria
 
 === SUGGESTED ADDITION (Privacy Contact & Store Compliance) ===
 Privacy contact and App Store compliance
 
-- For app store review or privacy inquiries, contact privacy@arewaflix.com.
+- For app store review or privacy inquiries, contact privacy@arewaflix.co.
 - Ensure the Privacy Policy URL is included in the App Store and Google Play listing and that the wording of any iOS permission descriptions (e.g., NSUserTrackingUsageDescription) accurately reflects our actual tracking behavior.
 
 === END SUGGESTED CHANGES ===
@@ -153,7 +153,7 @@ Privacy contact and App Store compliance
 
 Notes for integration
 
-- Host this policy at a stable public URL (e.g., https://arewaflix.com/terms/privacy-policy) and add that URL to the store listing and `app.json` store/privacy fields.
+- Host this policy at a stable public URL (e.g., https://arewaflix.co/terms/privacy-policy) and add that URL to the store listing and `app.json` store/privacy fields.
 - Make the signup page links open the hosted URLs via `WebBrowser.openBrowserAsync(...)`.
 - Consider adding an in-app Settings -> Privacy screen that displays the same short disclosure and lets users toggle device analytics (and that toggle should be respected by `lib/device-fingerprint.ts` and by any code that sends tokens/identifiers to the backend).
 

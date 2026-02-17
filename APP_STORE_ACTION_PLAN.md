@@ -10,7 +10,7 @@ Each step includes the files to edit and a short implementation note.
 
 1. Add hosted Privacy Policy & Terms of Service
 
-- Deliverable: `https://arewaflix.com/terms/privacy-policy` and `https://arewaflix.com/terms/terms` (public URLs)
+- Deliverable: `https://arewaflix.co/terms/privacy-policy` and `https://arewaflix.co/terms/terms` (public URLs)
 - Files touched: none in app; update `app.json` after URLs are live.
 - Notes: Use a generator/template, include data collection, third parties, deletion rights, contact.
 
@@ -22,7 +22,7 @@ Each step includes the files to edit and a short implementation note.
 3. Add Privacy Policy URL to `app.json`
 
 - File: `arewaflix-cp/app.json`
-- Add: `"privacy": "https://arewaflix.com/terms/privacy-policy"` under `expo`.
+- Add: `"privacy": "https://arewaflix.co/terms/privacy-policy"` under `expo`.
 
 4. Add in-app account deletion
 

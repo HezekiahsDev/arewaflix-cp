@@ -1,6 +1,6 @@
 import { Video, VIDEOS_API_BASE_URL } from "@/lib/api/videos";
 
-const AREWAFLIX_BASE_URL = "https://arewaflix.com";
+const AREWAFLIX_BASE_URL = "https://arewaflix.co";
 const AREWAFLIX_SUFFIX = "_1ff1rx1dDLBkD57.html";
 
 // Base URL for media files (video assets) stored in the S3/Backblaze bucket.
@@ -22,7 +22,7 @@ function titleToSlug(title: string): string {
 
 /**
  * Generates ArewaFlix watch URL from video title
- * Example: "Zafin Nema Season 1 Episode 12" -> "https://arewaflix.com/watch/zafin-nema-season-1-episode-12_1ff1rx1dDLBkD57.html"
+ * Example: "Zafin Nema Season 1 Episode 12" -> "https://arewaflix.co/watch/zafin-nema-season-1-episode-12_1ff1rx1dDLBkD57.html"
  */
 export function generateArewaFlixUrl(title: string): string {
   const slug = titleToSlug(title);
@@ -151,7 +151,7 @@ export function resolveDirectVideoUrl(candidate: string): string | undefined {
 
   const lower = trimmed.toLowerCase();
   const hasExtension = VIDEO_FILE_EXTENSIONS.some((ext) =>
-    lower.includes(`.${ext}`)
+    lower.includes(`.${ext}`),
   );
 
   const qualifiesAsPath = hasExtension || hasPathIndicators(trimmed);
@@ -198,7 +198,7 @@ export function resolveVideoMedia(video: Video): VideoMedia {
 
 export async function resolveVideoPlaybackSource(
   video: Video,
-  options: { media?: VideoMedia } = {}
+  options: { media?: VideoMedia } = {},
 ): Promise<VideoPlaybackSource | null> {
   const { media: providedMedia } = options;
   const media = providedMedia ?? resolveVideoMedia(video);

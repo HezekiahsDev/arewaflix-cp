@@ -26,6 +26,7 @@ import "../global.css";
 
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 import AppHeader from "@/components/AppHeader";
+import ScreenSecurityGuard from "@/components/ScreenSecurityGuard";
 import Colors from "@/constants/Colors";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { FullscreenProvider, useFullscreen } from "@/context/FullscreenContext";
@@ -114,7 +115,7 @@ function RootLayoutNav() {
 
   const isPublicRoute = publicRoutes.has(
     // normalize pathname by trimming trailing slash if present
-    pathname?.replace(/\/$/, "") ?? ""
+    pathname?.replace(/\/$/, "") ?? "",
   );
   const { isAuthenticated } = useAuth();
   const router = useRouter();
@@ -322,6 +323,7 @@ function RootLayoutNav() {
               <Stack.Screen name="eula" options={{ headerShown: false }} />
             </Stack>
           </View>
+          <ScreenSecurityGuard />
         </SafeAreaView>
       </ThemeProvider>
     </SafeAreaProvider>

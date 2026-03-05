@@ -26,8 +26,8 @@ All **critical blockers** for App Store and Play Store submission have been reso
   - `app/(tabs)/profile.tsx` - Terms/Privacy links in footer
 - ✅ Updated `app.json` with iOS permission descriptions
 - ✅ Links now open:
-  - Terms: `https://arewaflix.com/terms/terms`
-  - Privacy: `https://arewaflix.com/terms/privacy-policy`
+  - Terms: `https://arewaflix.co/terms/terms`
+  - Privacy: `https://arewaflix.co/terms/privacy-policy`
 
 **Files Modified:**
 
@@ -105,7 +105,7 @@ If you want to add social login later, you must implement:
 **Changes Made:**
 
 - ✅ **About** - Shows app version and developer info via Alert
-- ✅ **Help & Support** - Opens `https://arewaflix.com/contact-us` in browser
+- ✅ **Help & Support** - Opens `https://arewaflix.co/contact-us` in browser
 - ✅ **Other options** (My Videos, Subscriptions, Settings, Language) - Show "Coming Soon" alert
 - ✅ All tiles now respond to taps
 
@@ -149,7 +149,7 @@ If you want to add social login later, you must implement:
 **Changes Made:**
 
 - ✅ Added `onPress` handler that shows Alert
-- ✅ Alert offers to open `https://arewaflix.com/forgot-password`
+- ✅ Alert offers to open `https://arewaflix.co/forgot-password`
 - ✅ Uses `expo-web-browser` to open browser
 
 **Files Modified:**
@@ -157,7 +157,7 @@ If you want to add social login later, you must implement:
 - `app/auth/login.tsx`
 
 **⚠️ Backend/Website Action Required:**
-Create a password reset page at `https://arewaflix.com/forgot-password` or update the URL to your existing reset page.
+Create a password reset page at `https://arewaflix.co/forgot-password` or update the URL to your existing reset page.
 
 ---
 
@@ -188,11 +188,11 @@ Create a password reset page at `https://arewaflix.com/forgot-password` or updat
    - Send confirmation email (optional)
 
 2. **Password Reset Page** (Medium Priority)
-   - Create page at `https://arewaflix.com/forgot-password`
+   - Create page at `https://arewaflix.co/forgot-password`
    - Or update the URL in `app/auth/login.tsx` to your existing page
 
 3. **Support Page** (Low Priority)
-   - Create page at `https://arewaflix.com/contact-us`
+   - Create page at `https://arewaflix.co/contact-us`
    - Or update the URL in `app/(tabs)/profile.tsx`
 
 ---
@@ -202,7 +202,7 @@ Create a password reset page at `https://arewaflix.com/forgot-password` or updat
 1. **Google Play Data Safety Form** (Critical)
    - Complete in Play Console
    - Declare all data collected (see analysis doc)
-   - Add privacy policy URL: `https://arewaflix.com/terms/privacy-policy`
+   - Add privacy policy URL: `https://arewaflix.co/terms/privacy-policy`
 
 2. **App Store Metadata** (Critical)
    - Prepare screenshots (required device sizes)

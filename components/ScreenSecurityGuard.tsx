@@ -1,9 +1,6 @@
 import { BlurView } from "expo-blur";
-import {
-  addScreenshotListener,
-  usePreventScreenCapture,
-} from "expo-screen-capture";
-import { useEffect, useRef, useState } from "react";
+import { usePreventScreenCapture } from "expo-screen-capture";
+import { useEffect, useState } from "react";
 import {
   AppState,
   AppStateStatus,
@@ -23,44 +20,20 @@ function ScreenSecurityGuard() {
 
   const initialAppState = (AppState.currentState ?? "active") as AppStateStatus;
   const [appState, setAppState] = useState<AppStateStatus>(initialAppState);
-  const [screenCaptureActive, setScreenCaptureActive] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const lastNoticeRef = useRef(0);
 
   useEffect(() => {
     const appStateSub = AppState.addEventListener("change", setAppState);
 
-    let resetTimer: ReturnType<typeof setTimeout> | undefined;
-    let toastTimer: ReturnType<typeof setTimeout> | undefined;
-    let captureSub: { remove: () => void } | undefined;
-    if (isNative) {
-      captureSub = addScreenshotListener(() => {
-        setScreenCaptureActive(true);
-        if (resetTimer) clearTimeout(resetTimer);
-        resetTimer = setTimeout(() => setScreenCaptureActive(false), 1500);
-
-        const now = Date.now();
-        const NOTICE_COOLDOWN_MS = 5000;
-        const shouldShow = now - lastNoticeRef.current > NOTICE_COOLDOWN_MS;
-        if (shouldShow) {
-          lastNoticeRef.current = now;
-          setShowToast(true);
-          if (toastTimer) clearTimeout(toastTimer);
-          toastTimer = setTimeout(() => setShowToast(false), 5000);
-        }
-      });
-    }
+    const toastTimer: ReturnType<typeof setTimeout> | undefined = undefined;
 
     return () => {
       appStateSub.remove();
-      captureSub?.remove();
-      if (resetTimer) clearTimeout(resetTimer);
       if (toastTimer) clearTimeout(toastTimer);
     };
   }, []);
 
-  const shouldBlur =
-    appState === "background" || appState === "inactive" || screenCaptureActive;
+  const shouldBlur = appState === "background" || appState === "inactive";
 
   return (
     <>
